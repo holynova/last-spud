@@ -1,0 +1,20 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+pnpm-debug.log*
+
+# 构建产物（当前项目零构建，预留）
+dist/
+build/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
