@@ -10,8 +10,13 @@ import { startWave, sweepWave, updateWave } from '../domain/WaveDirector';
 import { createEnemy } from '../domain/entities';
 import { PickupSystem } from '../domain/PickupSystem';
 import { applyLevelPick, buildLevelupPool, describePick, pickLevelUps } from '../domain/LevelSystem';
+import { updateSkills, updateHazards } from '../domain/SkillSystem';
+import { SKILLS, skillStats } from '../data/skills';
 import { InputService } from '../infra/input';
 import type { BulletEntity, EnemyEntity } from '../domain/types';
+
+const SKILL_ICONS: Record<string, string> = Object.fromEntries(
+  Object.entries(SKILLS).map(([k, d]) => [k, d.icon]));
 
 /**
  * 战斗场景（P4）：世界装配 + 玩家 + 武器 + 敌人波次 + 掉落拾取 + 升级四选一 + HUD。
@@ -89,6 +94,33 @@ export class BattleScene extends Phaser.Scene {
         this.world.grid.insert(child);
         this.enemySprites.set(child, this.add.image(child.x, child.y, child.def.sprite).setScale((child.r * 2.6) / 16));
       }
+    });
+    this.bus.on('fx:ring', ({ x, y, r, color, width }) => {
+      const ring = this.add.circle(x, y, 8, 0xffffff, 0)
+        .setStrokeStyle(width ?? 3, Phaser.Display.Color.HexStringToColor(color).color, 0.9).setDepth(85);
+      this.tweens.add({ targets: ring, radius: r, alpha: 0, duration: 320, onComplete: () => ring.destroy() });
+    });
+    this.bus.on('fx:bolt', ({ x1, y1, x2, y2, color }) => {
+      const g = this.add.graphics().setDepth(85);
+      g.lineStyle(3, Phaser.Display.Color.HexStringToColor(color).color, 1);
+      g.beginPath();
+      g.moveTo(x1, y1);
+      const segs = 6, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+      for (let i = 1; i < segs; i++) {
+        const t = i / segs, off = (Math.random() - 0.5) * 20;
+        g.lineTo(x1 + dx * t - (dy / len) * off, y1 + dy * t + (dx / len) * off);
+      }
+      g.lineTo(x2, y2);
+      g.strokePath();
+      this.time.delayedCall(180, () => g.destroy());
+    });
+    this.bus.on('fx:arc', ({ x, y, ang, arc, r, color }) => {
+      const g = this.add.graphics().setDepth(85);
+      g.lineStyle(7, Phaser.Display.Color.HexStringToColor(color).color, 0.9);
+      g.beginPath();
+      g.arc(x, y, r * 0.9, ang - arc / 2, ang + arc / 2);
+      g.strokePath();
+      this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
     });
     this.bus.on('fx:boom', ({ x, y, r, color }) => {
       const ring = this.add.circle(x, y, 10, Phaser.Display.Color.HexStringToColor(color).color, 0.6).setDepth(80);
@@ -251,6 +283,11 @@ export class BattleScene extends Phaser.Scene {
     updatePlayer(this.world, dt, this.input2.moveIntent());
     clampToArena(p, { w: ARENA_W, h: ARENA_H, wall: WALL });
 
+    // 技能自动施放 + 火圈结算
+    updateSkills(this.world, dt);
+    updateHazards(this.world, dt);
+    this.renderHazards();
+
     // 波次刷怪与倒计时
     updateWave(this.run, this.world, dt);
     if (this.run.timeLeft <= 0 && !this.run.sweeping) this.endWaveFlow();
@@ -303,6 +340,62 @@ export class BattleScene extends Phaser.Scene {
 
     this.syncPickupSprites();
     this.drawHud();
+    this.refreshSkillHud();
+  }
+
+  /** 火圈：每帧重绘危险区域 */
+  private hazardGfx!: Phaser.GameObjects.Graphics;
+  private renderHazards(): void {
+    if (!this.hazardGfx) this.hazardGfx = this.add.graphics().setDepth(30);
+    this.hazardGfx.clear();
+    for (const h of this.world.hazards) {
+      const a = Math.max(0, h.ttl / h.maxTtl);
+      this.hazardGfx.fillStyle(0xff7a1e, 0.22 + a * 0.25);
+      this.hazardGfx.fillCircle(h.x, h.y, h.r);
+      this.hazardGfx.fillStyle(0xffb057, 0.25);
+      this.hazardGfx.fillCircle(h.x, h.y, h.r * (0.5 + 0.12 * Math.sin(this.time.now / 90)));
+    }
+  }
+
+  /** 技能槽 HUD：图标 + 等级角标 + 冷却条（集合变化才重建） */
+  private _skillSig = '';
+  private skillIconLayer!: Phaser.GameObjects.Container;
+  private skillIcons: Phaser.GameObjects.Image[] = [];
+  private skillCdBars: Phaser.GameObjects.Rectangle[] = [];
+  private refreshSkillHud(): void {
+    const p = this.world.player;
+    if (!this.skillIconLayer) {
+      this.skillIconLayer = this.add.container(0, 0).setScrollFactor(0).setDepth(151);
+    }
+    const sig = p.skills.map(s => s.key + ':' + s.level).join(',');
+    if (sig !== this._skillSig) {
+      this._skillSig = sig;
+      this.skillIconLayer.removeAll(true);
+      this.skillIcons = [];
+      this.skillCdBars = [];
+      p.skills.forEach(s => {
+        const icon = this.add.image(0, 0, SKILL_ICONS[s.key]).setScale(1.1);
+        const cd = this.add.rectangle(0, 16, 36, 5, 0x2b7fc9).setOrigin(0, 0.5);
+        const lv = this.add.text(20, -18, String(s.level), {
+          fontFamily: 'sans-serif', fontSize: '12px', color: '#ffffff', fontStyle: 'bold',
+          stroke: '#000000', strokeThickness: 2,
+        });
+        this.skillIconLayer.add([icon, cd, lv]);
+        this.skillIcons.push(icon);
+        this.skillCdBars.push(cd);
+      });
+    }
+    this.skillIcons.forEach((icon, i) => {
+      icon.setPosition(this.scale.width - 40 - i * 48, this.scale.height - 40);
+    });
+    this.skillCdBars.forEach((bar, i) => {
+      const s = p.skills[i];
+      if (!s) return;
+      const st = skillStats(s.key, s.level);
+      const pct = st.cd > 0 ? Phaser.Math.Clamp(s.timer / st.cd, 0, 1) : 0;
+      bar.width = 36 * pct;
+      bar.setPosition(this.scale.width - 58 - i * 48 + 36 * (1 - pct), this.scale.height - 40);
+    });
   }
 
   private syncPickupSprites(): void {

@@ -28,8 +28,17 @@ export interface WeaponInstance {
   recoil: number;     // 后坐动画 0~1
 }
 
+import type { SkillKey } from '../data/skills';
+
+export interface Hazard {
+  x: number; y: number; r: number;
+  dps: number;
+  ttl: number; maxTtl: number;
+  tick: number;
+}
+
 export interface SkillInstance {
-  key: string;
+  key: SkillKey;
   level: number;
   timer: number;
   tick: number;       // 荆棘类持续技的结算计时
@@ -105,6 +114,7 @@ export interface World {
   player: PlayerEntity;
   enemies: EnemyEntity[];
   bullets: BulletEntity[];
+  hazards: Hazard[];
   grid: import('./SpatialGrid').SpatialGrid<EnemyEntity>;
   wave: number;
   dmgMul: number;

@@ -35,6 +35,7 @@ export function createWorld(player: PlayerEntity, wave = 1): WorldBundle {
     player,
     enemies: [],
     bullets: [],
+    hazards: [],
     grid: new SpatialGrid<EnemyEntity>(96),
     wave,
     dmgMul: 1,
