@@ -15,10 +15,18 @@ import { ShopSystem, type ShopOffer } from '../domain/ShopSystem';
 import { WEAPONS, TIER_NAMES, TIER_COLORS } from '../data/weapons';
 import { SKILLS, skillStats } from '../data/skills';
 import { InputService } from '../infra/input';
+import { CHARACTERS, characterStats } from '../data/characters';
+import { SaveSystem, type SaveData } from '../domain/SaveSystem';
+import { localStorageAdapter } from '../infra/storage';
 import type { BulletEntity, EnemyEntity } from '../domain/types';
 
 const SKILL_ICONS: Record<string, string> = Object.fromEntries(
   Object.entries(SKILLS).map(([k, d]) => [k, d.icon]));
+
+function memoryStorageFallback(): import('../domain/SaveSystem').StorageLike {
+  const m = new Map<string, string>();
+  return { getItem: k => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v); }, removeItem: k => { m.delete(k); } };
+}
 
 /**
  * 战斗场景（P4）：世界装配 + 玩家 + 武器 + 敌人波次 + 掉落拾取 + 升级四选一 + HUD。
@@ -46,9 +54,25 @@ export class BattleScene extends Phaser.Scene {
   private world!: ReturnType<typeof createWorld>['world'];
   private bus!: ReturnType<typeof createWorld>['bus'];
   private run!: ReturnType<typeof createWorld>['run'];
+  private saveSystem = new SaveSystem(
+    typeof window !== 'undefined' && window.localStorage ? localStorageAdapter() : memoryStorageFallback());
+  private saveData?: SaveData;
+  private charIdx = 0;
+  private paused = false;
+  private gameEnded = false;
 
   constructor() {
     super('Battle');
+  }
+
+  init(data: { charIdx?: number; save?: SaveData }): void {
+    this.charIdx = data.charIdx ?? 0;
+    this.saveData = data.save;
+    this.paused = false;
+    this.gameEnded = false;
+    this.pendingLevels = 0;
+    this.overlayOpen = false;
+    this.afterLevelUpsCb = undefined;
   }
 
   create(): void {
@@ -62,12 +86,20 @@ export class BattleScene extends Phaser.Scene {
       this.add.image(d.x, d.y, d.kind).setScale(d.scale).setRotation(d.rotation).setAlpha(0.92);
     }
 
-    // 领域装配
-    const stats = {
-      maxHp: 60, regen: 0, speed: 1, dmg: 1, aspd: 1, range: 1,
-      crit: 0.05, critMult: 2, armor: 0, dodge: 0.03, pickup: 90, luck: 0,
-    };
-    const player = createPlayer('adventurer', ARENA_W / 2, ARENA_H / 2, stats, this.weaponKey);
+    // 领域装配：按角色（或存档）初始化
+    const char = CHARACTERS[this.saveData ? CHARACTERS.findIndex(c => c.key === this.saveData!.char) : this.charIdx] ?? CHARACTERS[0];
+    this.charIdx = CHARACTERS.indexOf(char);
+    this.weaponKey = char.start;
+    const player = createPlayer(char.key, ARENA_W / 2, ARENA_H / 2, characterStats(char), char.start);
+    if (this.saveData) {
+      const sv = this.saveData;
+      Object.assign(player.stats, sv.stats);
+      player.stats.maxHp = sv.stats.maxHp;
+      player.hp = Math.min(sv.hp, player.stats.maxHp);
+      player.xp = sv.xp; player.level = sv.level; player.money = sv.money;
+      player.weapons = sv.weapons.map(w => ({ ...w }));
+      player.skills = sv.skills.map(sk => ({ key: sk.key, level: sk.level, timer: 0.5, tick: 0, castAnim: 0 }));
+    }
     const bundle = createWorld(player, 1);
     this.world = bundle.world;
     this.bus = bundle.bus;
@@ -146,6 +178,9 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 6,
     }).setOrigin(0.5).setScrollFactor(0).setAlpha(0).setDepth(160);
 
+    // Esc 暂停
+    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
+
     // 数字键切换武器（验证用）
     const weaponKeys = ['pistol', 'smg', 'shotgun', 'sniper', 'knife', 'boomerang', 'club', 'laser', 'aura', 'flamer'];
     const keyNames = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'];
@@ -161,8 +196,75 @@ export class BattleScene extends Phaser.Scene {
     this.startWave(1);
   }
 
+  private saveProgress(): void {
+    const p = this.world.player;
+    this.saveSystem.save({
+      char: p.defKey, wave: this.run.wave, hp: Math.ceil(p.hp), xp: p.xp,
+      level: p.level, money: p.money, stats: p.stats,
+      weapons: p.weapons.map(w => ({ key: w.key, tier: w.tier, timer: 0, aim: 0, recoil: 0 })),
+      skills: p.skills.map(sk => ({ key: sk.key, level: sk.level })),
+      kills: this.run.kills, elapsed: this.run.elapsed, time: Date.now(),
+    });
+  }
+
+  private togglePause(): void {
+    if (this.gameEnded || this.overlayOpen) return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      const p = this.world.player;
+      const cx = this.scale.width / 2, cy = this.scale.height / 2;
+      const layer = this.add.container(0, 0).setScrollFactor(0).setDepth(210);
+      layer.setName('pauseLayer');
+      layer.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.75));
+      layer.add(this.add.text(cx, cy - 160, '暂停', { fontFamily: 'sans-serif', fontSize: '34px', color: '#f2e3c3', fontStyle: 'bold' }).setOrigin(0.5));
+      layer.add(this.add.text(cx, cy - 20,
+        `生命 ${Math.ceil(p.hp)}/${Math.round(p.stats.maxHp)}   伤害 ${Math.round(p.stats.dmg * 100)}%   攻速 ${Math.round(p.stats.aspd * 100)}%\n` +
+        `移速 ${Math.round(p.stats.speed * 100)}%   暴击 ${Math.round(p.stats.crit * 100)}%   护甲 ${p.stats.armor}   闪避 ${Math.round(p.stats.dodge * 100)}%`,
+        { fontFamily: 'sans-serif', fontSize: '15px', color: '#e8e0d0', align: 'center', lineSpacing: 8 }).setOrigin(0.5));
+      const resume = this.add.container(cx - 110, cy + 120);
+      resume.add(this.add.rectangle(0, 0, 180, 48, 0x7a4a1e).setStrokeStyle(3, 0x3d2410));
+      resume.add(this.add.text(0, 0, '继续战斗', { fontFamily: 'sans-serif', fontSize: '16px', color: '#ffe9c4', fontStyle: 'bold' }).setOrigin(0.5));
+      (resume.list[0] as Phaser.GameObjects.Rectangle).setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => this.togglePause());
+      const quit = this.add.container(cx + 110, cy + 120);
+      quit.add(this.add.rectangle(0, 0, 160, 48, 0x2a251d).setStrokeStyle(3, 0x55503f));
+      quit.add(this.add.text(0, 0, '放弃本局', { fontFamily: 'sans-serif', fontSize: '16px', color: '#e8e0d0' }).setOrigin(0.5));
+      (quit.list[0] as Phaser.GameObjects.Rectangle).setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => this.endGame(false));
+      layer.add([resume, quit]);
+    } else {
+      this.children?.getByName('pauseLayer')?.destroy();
+      const layer = this.children.getByName('pauseLayer');
+      layer?.destroy();
+    }
+  }
+
+  private endGame(win: boolean): void {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    this.saveSystem.saveBest(win, this.run.wave, this.run.kills);
+    this.saveSystem.clear();
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const layer = this.add.container(0, 0).setScrollFactor(0).setDepth(220);
+    layer.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.85));
+    layer.add(this.add.text(cx, cy - 140, win ? '通关！地牢之王' : '你倒在了地牢深处', {
+      fontFamily: 'sans-serif', fontSize: '40px', color: win ? '#ffd257' : '#ff6b5e', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5));
+    layer.add(this.add.text(cx, cy - 40,
+      `到达波次  第 ${this.run.wave} / 12 波\n等级  Lv.${this.world.player.level}\n击杀数  ${this.run.kills}\n存活  ${Math.floor(this.run.elapsed / 60)} 分 ${Math.floor(this.run.elapsed % 60)} 秒`,
+      { fontFamily: 'sans-serif', fontSize: '16px', color: '#e8e0d0', align: 'center', lineSpacing: 10 }).setOrigin(0.5));
+    const again = this.add.container(cx, cy + 130);
+    again.add(this.add.rectangle(0, 0, 240, 54, 0x7a4a1e).setStrokeStyle(3, 0x3d2410));
+    again.add(this.add.text(0, 0, '再来一局', { fontFamily: 'sans-serif', fontSize: '18px', color: '#ffe9c4', fontStyle: 'bold' }).setOrigin(0.5));
+    (again.list[0] as Phaser.GameObjects.Rectangle).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.scene.start('Menu'));
+    layer.add(again);
+  }
+
   private startWave(w: number): void {
     startWave(this.run, this.world, w);
+    this.saveProgress();
     this.bannerText.setText(`第 ${w} / 12 波${w === 12 ? ' · 最终决战' : ''}`);
     this.bannerText.setAlpha(1);
     this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1800, delay: 700 });
@@ -413,7 +515,7 @@ export class BattleScene extends Phaser.Scene {
       );
       this.afterLevelUps(() => {
         if (this.run.wave >= 12) {
-          this.bannerText.setText('通关！').setAlpha(1).setDepth(220);
+          this.endGame(true);
         } else {
           this.openShop();
         }
@@ -426,8 +528,12 @@ export class BattleScene extends Phaser.Scene {
     const p = this.world.player;
     this.run.elapsed += dt;
 
-    // 升级界面打开时世界暂停
-    if (this.overlayOpen) return;
+    // 升级界面 / 暂停 / 结算时世界暂停
+    if (this.overlayOpen || this.paused || this.gameEnded) {
+      if (this.world.player.hp <= 0) this.endGame(false);
+      return;
+    }
+    if (this.world.player.hp <= 0) { this.endGame(false); return; }
 
     // 移动 + 钳制
     updatePlayer(this.world, dt, this.input2.moveIntent());

@@ -35,15 +35,36 @@ try {
 
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.__ds, null, { timeout: 15000 });
-  await sleep(1200); // 等场景 create 完成
+  await page.waitForFunction(() => {
+    const g = window.__ds;
+    const scene = g?.scene?.getScenes(true)?.[0];
+    return scene?.scene?.key === 'Menu';
+  }, null, { timeout: 15000 });
+  await sleep(400);
+
+  // 菜单：选第一个角色并开始
+  await page.evaluate(() => {
+    const g = window.__ds;
+    const menu = g.scene.getScene('Menu');
+    menu.scene.start('Battle', { charIdx: 0 });
+  });
+  await page.waitForFunction(() => {
+    const g = window.__ds;
+    const scene = g?.scene?.getScenes(true)?.[0];
+    return scene?.scene?.key === 'Battle';
+  }, null, { timeout: 15000 });
+  await sleep(1500); // 等敌人进场与开火
 
   const info = await page.evaluate(() => {
     const game = window.__ds;
     const scene = game?.scene?.getScenes(true)?.[0];
+    const battle = game?.scene?.getScene('Battle');
     return {
       booted: !!game,
       activeScene: scene?.scene?.key ?? null,
       children: scene ? scene.children.length : 0,
+      hasWorld: !!battle?.world,
+      enemies: battle?.world?.enemies?.length ?? 0,
       canvasSize: game?.canvas?.width + 'x' + game?.canvas?.height,
     };
   });
@@ -55,6 +76,7 @@ try {
   assert(info.booted, 'Phaser 实例未启动');
   assert(info.activeScene === 'Battle', '活动场景应为 Battle，实际: ' + info.activeScene);
   assert(info.children > 10, '场景对象过少: ' + info.children);
+  assert(info.hasWorld, '战斗世界未装配');
   assert(errors.length === 0, '存在控制台错误');
 
   console.log('E2E 信息:', JSON.stringify(info));
