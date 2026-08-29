@@ -1,43 +1,62 @@
 import Phaser from 'phaser';
-import { ARENA_H, ARENA_W, WALL, assetUrl } from '../config';
+import { ARENA_H, ARENA_W, WALL } from '../config';
+import { buildDecorList, wallPositions } from '../domain/layout';
+import { mulberry32 } from '../utils/rng';
 
 /**
- * 战斗场景（P0 占位版）：验证地面 / 边界墙 / 摄像机边界与像素缩放。
- * P1 起逐步替换为真实的资源加载、装饰物与实体渲染。
+ * 战斗场景（P1）：地面 / 边界墙 / 装饰物 / 摄像机跟随与钳制。
+ * 占位英雄精灵用于验证摄像机跟随，P2 替换为正式玩家实体。
  */
 export class BattleScene extends Phaser.Scene {
+  private dummy!: Phaser.GameObjects.Image;
+
   constructor() {
     super('Battle');
   }
 
-  preload(): void {
-    this.load.image('ground.pattern', assetUrl('ground/floor_pattern'));
-    this.load.image('ground.wall', assetUrl('ground/wall'));
+  create(): void {
+    // 地面
+    this.add.tileSprite(ARENA_W / 2, ARENA_H / 2, ARENA_W, ARENA_H, 'ground/floor_pattern');
+
+    // 边界墙
+    for (const t of wallPositions()) {
+      this.add.image(t.x, t.y, 'ground/wall').setDisplaySize(WALL, WALL);
+    }
+
+    // 装饰物（每局确定性随机布局）
+    const rng = mulberry32(Date.now() >>> 0);
+    for (const d of buildDecorList(rng)) {
+      const img = this.add.image(d.x, d.y, d.kind);
+      img.setScale(d.scale);
+      img.setRotation(d.rotation);
+      img.setAlpha(0.92);
+    }
+
+    // 占位英雄：验证摄像机跟随（P2 由正式玩家实体替换）
+    this.dummy = this.add.image(ARENA_W / 2, ARENA_H / 2, 'player/adventurer').setScale(2.5);
+
+    // 摄像机：边界钳制 + 平滑跟随
+    this.cameras.main.setBounds(0, 0, ARENA_W, ARENA_H);
+    this.cameras.main.startFollow(this.dummy, true, 0.12, 0.12);
+
+    // WASD 移动占位英雄（P2 移入玩家实体与输入服务）
+    this.input.keyboard?.on('keydown', () => undefined);
   }
 
-  create(): void {
-    // 地面：整片世界铺一块 TileSprite
-    this.add.tileSprite(ARENA_W / 2, ARENA_H / 2, ARENA_W, ARENA_H, 'ground.pattern');
-
-    // 边界墙：四边平铺 48px 墙砖
-    const wall = this.add.image(0, 0, 'ground.wall').setVisible(false);
-    const w = wall.width * 3;
-    wall.destroy();
-    for (let x = 0; x < ARENA_W; x += w) {
-      this.add.image(x + w / 2, WALL / 2, 'ground.wall').setDisplaySize(w, w);
-      this.add.image(x + w / 2, ARENA_H - WALL / 2, 'ground.wall').setDisplaySize(w, w);
+  update(_time: number, deltaMs: number): void {
+    const speed = 235 * (deltaMs / 1000);
+    const kb = this.input.keyboard;
+    if (!kb) return;
+    const up = kb.addKey('W'), down = kb.addKey('S'), left = kb.addKey('A'), right = kb.addKey('D');
+    let dx = 0, dy = 0;
+    if (up.isDown) dy -= 1;
+    if (down.isDown) dy += 1;
+    if (left.isDown) dx -= 1;
+    if (right.isDown) dx += 1;
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      this.dummy.x = Phaser.Math.Clamp(this.dummy.x + (dx / len) * speed, WALL + 16, ARENA_W - WALL - 16);
+      this.dummy.y = Phaser.Math.Clamp(this.dummy.y + (dy / len) * speed, WALL + 16, ARENA_H - WALL - 16);
     }
-    for (let y = WALL; y < ARENA_H - WALL; y += w) {
-      this.add.image(WALL / 2, y + w / 2, 'ground.wall').setDisplaySize(w, w);
-      this.add.image(ARENA_W - WALL / 2, y + w / 2, 'ground.wall').setDisplaySize(w, w);
-    }
-
-    // 摄像机：跟随目标（P2 加入玩家后绑定），先对准世界中心并钳制在世界范围内
-    this.cameras.main.setBounds(0, 0, ARENA_W, ARENA_H);
-    this.cameras.main.centerOn(ARENA_W / 2, ARENA_H / 2);
-
-    this.add.text(ARENA_W / 2, 120, '地牢幸存者 · Phaser 4 重构版', {
-      fontFamily: 'sans-serif', fontSize: '42px', color: '#f2e3c3',
-    }).setOrigin(0.5).setScrollFactor(0.5);
   }
 }
