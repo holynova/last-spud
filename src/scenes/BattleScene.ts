@@ -11,6 +11,8 @@ import { createEnemy } from '../domain/entities';
 import { PickupSystem } from '../domain/PickupSystem';
 import { applyLevelPick, buildLevelupPool, describePick, pickLevelUps } from '../domain/LevelSystem';
 import { updateSkills, updateHazards } from '../domain/SkillSystem';
+import { ShopSystem, type ShopOffer } from '../domain/ShopSystem';
+import { WEAPONS, TIER_NAMES, TIER_COLORS } from '../data/weapons';
 import { SKILLS, skillStats } from '../data/skills';
 import { InputService } from '../infra/input';
 import type { BulletEntity, EnemyEntity } from '../domain/types';
@@ -38,6 +40,7 @@ export class BattleScene extends Phaser.Scene {
   private overlayOpen = false;
   private afterLevelUpsCb?: () => void;
   private pickupSystem!: PickupSystem;
+  private shop!: ShopSystem;
 
   // 领域状态（渲染只读）
   private world!: ReturnType<typeof createWorld>['world'];
@@ -73,9 +76,10 @@ export class BattleScene extends Phaser.Scene {
     // 玩家精灵
     this.playerSprite = this.add.image(player.x, player.y, 'player/' + player.defKey).setScale(2.5);
 
-    // 掉落拾取
+    // 掉落拾取与商店
     this.pickupSystem = new PickupSystem(this.bus as never);
     this.pickupSystem.attachDrops();
+    this.shop = new ShopSystem(() => this.run.wave);
 
     // 事件 → 表现
     this.bus.on('damage', ({ x, y, val, crit, color }) => {
@@ -249,6 +253,152 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  // ---------- 商店 ----------
+  private shopLayer?: Phaser.GameObjects.Container;
+
+  private openShop(): void {
+    this.overlayOpen = true;
+    this.shop.open();
+    this.buildShopUi();
+  }
+
+  private buildShopUi(): void {
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    this.shopLayer?.destroy();
+    const layer = this.add.container(0, 0).setScrollFactor(0).setDepth(210);
+    this.shopLayer = layer;
+    const p = this.world.player;
+    layer.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.78));
+    layer.add(this.add.text(cx, cy - 250, '地牢商人 · 补给时间', {
+      fontFamily: 'sans-serif', fontSize: '30px', color: '#f2e3c3', fontStyle: 'bold',
+    }).setOrigin(0.5));
+    const moneyText = this.add.text(cx + 300, cy - 250, `金币 ${p.money}`, {
+      fontFamily: 'sans-serif', fontSize: '20px', color: '#ffd257', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    layer.add(moneyText);
+
+    const refresh = (): void => {
+      this.buildShopUi();
+    };
+
+    const cardW = 200, gap = 20;
+    this.shop.offers.forEach((o, idx) => {
+      const x = cx + (idx - 1.5) * (cardW + gap);
+      layer.add(this.shopCard(o, x, cy - 40, () => {
+        const res = this.shop.buy(p, idx);
+        if (res === 'ok') { this.weaponText.setText(`武器: ${p.weapons.map(w => w.key + w.tier).join(', ')}`); refresh(); }
+        else if (res === 'weapons-full') { this.bannerText.setText('武器栏已满').setAlpha(1); this.time.delayedCall(800, () => this.bannerText.setAlpha(0)); }
+        else { moneyText.setColor('#ff6b5e'); this.time.delayedCall(300, () => moneyText.setColor('#ffd257')); }
+      }, () => { this.shop.toggleLock(idx); refresh(); }));
+    });
+
+    // 治疗泉水
+    const healCost = this.shop.healCost();
+    const heal = this.add.container(cx, cy + 140);
+    heal.add(this.add.rectangle(0, 0, cardW, 110, 0x2a2117).setStrokeStyle(3, 0xff6b5e));
+    heal.add(this.add.image(-56, 0, 'pickup/heart').setScale(1.4));
+    heal.add(this.add.text(10, -26, '治疗泉水', { fontFamily: 'sans-serif', fontSize: '16px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5));
+    heal.add(this.add.text(10, 0, '回复 40% 最大生命', { fontFamily: 'sans-serif', fontSize: '12px', color: '#b3a88d' }).setOrigin(0.5));
+    heal.add(this.add.text(10, 30, `金币 ${healCost}`, { fontFamily: 'sans-serif', fontSize: '14px', color: '#ffd257', fontStyle: 'bold' }).setOrigin(0.5));
+    const healBg = heal.list[0] as Phaser.GameObjects.Rectangle;
+    healBg.setInteractive({ useHandCursor: true });
+    healBg.on('pointerdown', () => {
+      const res = this.shop.buyHeal(p);
+      if (res === 'ok') refresh();
+      else if (res === 'no-money') { moneyText.setColor('#ff6b5e'); this.time.delayedCall(300, () => moneyText.setColor('#ffd257')); }
+    });
+    layer.add(heal);
+
+    // 重抽
+    const rerollBtn = this.add.container(cx - 180, cy + 240);
+    rerollBtn.add(this.add.rectangle(0, 0, 190, 52, 0x7a4a1e).setStrokeStyle(3, 0x3d2410));
+    rerollBtn.add(this.add.text(0, 0, `重抽 · ${this.shop.rerollCost()} 金`, {
+      fontFamily: 'sans-serif', fontSize: '17px', color: '#ffe9c4', fontStyle: 'bold',
+    }).setOrigin(0.5));
+    const rr = rerollBtn.list[0] as Phaser.GameObjects.Rectangle;
+    rr.setInteractive({ useHandCursor: true });
+    rr.on('pointerdown', () => {
+      if (p.money >= this.shop.rerollCost()) { p.money -= this.shop.rerollCost(); this.shop.reroll(); refresh(); }
+      else { moneyText.setColor('#ff6b5e'); this.time.delayedCall(300, () => moneyText.setColor('#ffd257')); }
+    });
+    layer.add(rerollBtn);
+
+    // 下一波
+    const nextBtn = this.add.container(cx + 180, cy + 240);
+    nextBtn.add(this.add.rectangle(0, 0, 240, 52, 0x7a4a1e).setStrokeStyle(3, 0x3d2410));
+    nextBtn.add(this.add.text(0, 0, `出发 → 第 ${this.run.wave + 1} 波`, {
+      fontFamily: 'sans-serif', fontSize: '18px', color: '#ffe9c4', fontStyle: 'bold',
+    }).setOrigin(0.5));
+    const nb = nextBtn.list[0] as Phaser.GameObjects.Rectangle;
+    nb.setInteractive({ useHandCursor: true });
+    nb.on('pointerdown', () => {
+      this.shopLayer?.destroy();
+      this.shopLayer = undefined;
+      this.overlayOpen = false;
+      this.startWave(this.run.wave + 1);
+    });
+    layer.add(nextBtn);
+  }
+
+  private shopCard(o: ShopOffer, x: number, y: number, onBuy: () => void, onLock: () => void): Phaser.GameObjects.Container {
+    const card = this.add.container(x, y);
+    const color = o.kind === 'weapon'
+      ? TIER_COLORS[o.tier! - 1]
+      : '#5ad06e';
+    const bg = this.add.rectangle(0, 0, 200, 230, 0x2a2117).setStrokeStyle(3, Phaser.Display.Color.HexStringToColor(color).color);
+    card.add(bg);
+    if (o.kind === 'weapon') {
+      const def = WEAPONS[o.weaponKey!];
+      card.add(this.add.text(0, -92, `武器 · ${TIER_NAMES[o.tier! - 1]}`, {
+        fontFamily: 'sans-serif', fontSize: '11px', color,
+      }).setOrigin(0.5));
+      card.add(this.add.image(0, -48, def.icon).setScale(1.8));
+      card.add(this.add.text(0, 6, def.name, {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5));
+      card.add(this.add.text(0, 34, `伤害 ${Math.round(o.tier! * 0 + def.dmg * (1 + 0.55 * (o.tier! - 1)))} · 冷却 ${(def.cd * Math.pow(0.94, o.tier! - 1)).toFixed(2)}s`, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#b3a88d',
+      }).setOrigin(0.5));
+      card.add(this.add.text(0, 60, def.desc, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#b3a88d', align: 'center',
+        wordWrap: { width: 180 },
+      }).setOrigin(0.5, 0));
+    } else {
+      card.add(this.add.text(0, -92, '道具', { fontFamily: 'sans-serif', fontSize: '11px', color }).setOrigin(0.5));
+      card.add(this.add.image(0, -48, o.item!.icon).setScale(1.8));
+      card.add(this.add.text(0, 6, o.item!.n, {
+        fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5));
+      card.add(this.add.text(0, 34, o.item!.d, {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#b3a88d', align: 'center',
+        wordWrap: { width: 180 },
+      }).setOrigin(0.5, 0));
+    }
+    card.add(this.add.text(0, 100, `金币 ${o.price}`, {
+      fontFamily: 'sans-serif', fontSize: '14px', color: o.sold ? '#666' : '#ffd257', fontStyle: 'bold',
+    }).setOrigin(0.5));
+
+    if (o.sold) bg.setFillStyle(0x1a160f);
+    else {
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerover', () => bg.setFillStyle(0x3a3120));
+      bg.on('pointerout', () => bg.setFillStyle(0x2a2117));
+      bg.on('pointerdown', onBuy);
+      // 锁定标签
+      const lock = this.add.text(o.locked ? 62 : 78, -108, o.locked ? '已锁' : '锁定', {
+        fontFamily: 'sans-serif', fontSize: '11px', color: o.locked ? '#ffd257' : '#a89d84',
+        backgroundColor: '#2a251d', padding: { x: 6, y: 2 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      lock.on('pointerdown', (pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: { stopPropagation?: () => void }) => {
+        event.stopPropagation?.();
+        onLock();
+      });
+      card.add(lock);
+      if (o.locked) card.add(this.add.text(0, -112, '', {}));
+    }
+    return card;
+  }
+
   // ---------- 波末流程 ----------
   private endWaveFlow(): void {
     sweepWave(this.run, this.world);
@@ -263,9 +413,9 @@ export class BattleScene extends Phaser.Scene {
       );
       this.afterLevelUps(() => {
         if (this.run.wave >= 12) {
-          this.bannerText.setText('通关！').setAlpha(1).setDepth(200);
+          this.bannerText.setText('通关！').setAlpha(1).setDepth(220);
         } else {
-          this.startWave(this.run.wave + 1);
+          this.openShop();
         }
       });
     });
