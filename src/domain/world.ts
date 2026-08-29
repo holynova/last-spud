@@ -12,6 +12,8 @@ export interface RunState {
   dmgMul: number;
   sweeping: boolean;
   spawnT: number;
+  combo: number;
+  comboT: number;
 }
 
 export interface WorldBundle {
@@ -30,6 +32,8 @@ export function createWorld(player: PlayerEntity, wave = 1): WorldBundle {
     dmgMul: 1,
     sweeping: false,
     spawnT: 0,
+    combo: 0,
+    comboT: 0,
   };
   const world: World = {
     player,

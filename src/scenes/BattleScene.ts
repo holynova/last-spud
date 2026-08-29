@@ -124,7 +124,26 @@ export class BattleScene extends Phaser.Scene {
       this.spawnFloatText(x, y, String(val), crit ? '#ffd257' : '#ffffff', crit);
     });
     this.bus.on('player:hurt', () => this.cameras.main.shake(120, 0.006));
-    this.bus.on('enemy:killed', () => { this.run.kills++; });
+    this.bus.on('enemy:killed', () => {
+      this.run.kills++;
+      // 特性：连击系统——3 秒连击窗口，每 50 连击触发连击宝箱（材料雨 + 治疗包）
+      this.run.combo++;
+      this.run.comboT = 3;
+      if (this.run.combo > 0 && this.run.combo % 50 === 0) {
+        const p = this.world.player;
+        for (let i = 0; i < 15; i++) {
+          this.pickupSystem.pickups.push({
+            x: p.x + (Math.random() - 0.5) * 260, y: p.y + (Math.random() - 0.5) * 260,
+            type: 'material', t: Math.random() * 6, vx: 0, vy: 0, magnet: true, collected: false,
+          });
+        }
+        this.pickupSystem.pickups.push({
+          x: p.x + 60, y: p.y - 60, type: 'heart', t: 0, vx: 0, vy: 0, magnet: true, collected: false,
+        });
+        this.bannerText.setText(`🔥 ${this.run.combo} 连击！宝箱奖励`).setAlpha(1).setDepth(160);
+        this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1200, delay: 500 });
+      }
+    });
     this.bus.on('enemy:split', ({ from, childKey }) => {
       for (let i = 0; i < 2; i++) {
         const child = createEnemy(childKey, from.x + (Math.random() - 0.5) * 30, from.y + (Math.random() - 0.5) * 30, this.run.wave);
@@ -556,6 +575,12 @@ export class BattleScene extends Phaser.Scene {
     }
     if (this.world.player.hp <= 0) { this.endGame(false); return; }
 
+    // 连击窗口衰减
+    if (this.run.comboT > 0) {
+      this.run.comboT -= dt;
+      if (this.run.comboT <= 0) this.run.combo = 0;
+    }
+
     // 移动 + 钳制
     updatePlayer(this.world, dt, this.input2.moveIntent());
     clampToArena(p, { w: ARENA_W, h: ARENA_H, wall: WALL });
@@ -741,6 +766,7 @@ export class BattleScene extends Phaser.Scene {
     g.fillStyle(0x2b7fc9, 1).fillRect(16, 38, 300 * xpPct, 6);
     this.hpText.setText(
       `HP ${Math.ceil(p.hp)}/${Math.round(p.stats.maxHp)}   Lv.${p.level}   ` +
-      `金钱 ${p.money}   击杀 ${this.run.kills}   第 ${this.run.wave}/12 波 ${Math.ceil(Math.max(0, this.run.timeLeft))}s`);
+      `金钱 ${p.money}   击杀 ${this.run.kills}   第 ${this.run.wave}/12 波 ${Math.ceil(Math.max(0, this.run.timeLeft))}s` +
+      (this.run.combo >= 5 ? `   连击 x${this.run.combo}` : ''));
   }
 }
