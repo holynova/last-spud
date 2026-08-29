@@ -26,7 +26,7 @@ export function dealDamage(
   kb: number, fromX: number, fromY: number, silent = false, rng: Rng = Math.random,
 ): void {
   if (e.dead) return;
-  const dmg = Math.max(1, Math.round(rolled.val));
+  const dmg = Math.max(1, Math.round(rolled.val * (e.dmgTakenMul ?? 1)));
   e.hp -= dmg;
   e.flash = 0.1;
   const ang = Math.atan2(e.y - fromY, e.x - fromX);

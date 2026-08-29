@@ -59,6 +59,7 @@ export function updateEnemy(world: World, e: EnemyEntity, dt: number): void {
   if (e.touchCd <= 0 && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
     e.touchCd = 0.9;
     hurtPlayer(world, Math.round(e.dmg * world.dmgMul));
+    if (e.vampiric) e.hp = Math.min(e.maxHp, e.hp + 8);
     const back = Math.atan2(e.y - p.y, e.x - p.x);
     e.kx += Math.cos(back) * 180;
     e.ky += Math.sin(back) * 180;

@@ -84,6 +84,9 @@ export interface EnemyEntity extends Vec2 {
   dashing: number;
   dead: boolean;
   t: number;
+  affixName?: string;    // 精英词缀显示名
+  dmgTakenMul?: number;  // 石肤：受伤倍率
+  vampiric?: boolean;    // 吸血：接触伤害回血
 }
 
 export interface BulletEntity extends Vec2 {

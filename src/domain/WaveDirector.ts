@@ -2,7 +2,7 @@ import { ARENA_H, ARENA_W, TOTAL_WAVES, WALL } from '../config';
 import { spawnInterval, spawnPerTick, waveDuration, eliteChance } from '../data/waves';
 import { spawnTable } from '../data/enemies';
 import { weightedPick } from '../utils/math';
-import { createEnemy } from './entities';
+import { createEnemy, ELITE_AFFIXES } from './entities';
 import type { RunState } from './world';
 import type { World } from './types';
 
@@ -38,7 +38,11 @@ function spawnAtEdge(world: World, key: string, wave: number): void {
     const dx = x - p.x, dy = y - p.y;
     if (dx * dx + dy * dy > 380 * 380) break;
   }
-  const e = createEnemy(key, x, y, wave);
+  const isElite = key === 'elite';
+  const affix = isElite && Math.random() < 0.6
+    ? ELITE_AFFIXES[Math.floor(Math.random() * ELITE_AFFIXES.length)]
+    : undefined;
+  const e = createEnemy(key, x, y, wave, affix);
   world.enemies.push(e);
   world.grid.insert(e);
 }

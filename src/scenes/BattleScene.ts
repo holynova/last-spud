@@ -6,6 +6,7 @@ import { createWorld } from '../domain/world';
 import { createPlayer, clampToArena, gainMaterial, updatePlayer } from '../domain/PlayerSystem';
 import { updateBullet } from '../domain/WeaponSystem';
 import { updateEnemy } from '../domain/EnemySystem';
+import { ELITE_AFFIXES } from '../domain/entities';
 import { startWave, sweepWave, updateWave } from '../domain/WaveDirector';
 import { createEnemy } from '../domain/entities';
 import { PickupSystem } from '../domain/PickupSystem';
@@ -38,6 +39,8 @@ export class BattleScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Image;
   private enemySprites = new Map<EnemyEntity, Phaser.GameObjects.Image>();
   private bulletSprites = new Map<BulletEntity, Phaser.GameObjects.Image>();
+  private affixLabels = new Map<EnemyEntity, Phaser.GameObjects.Text>();
+  private affixRings = new Map<EnemyEntity, Phaser.GameObjects.Arc>();
   private pickupSprites = new Map<import('../domain/PickupSystem').PickupEntity, Phaser.GameObjects.Image>();
   private hpText!: Phaser.GameObjects.Text;
   private weaponText!: Phaser.GameObjects.Text;
@@ -602,6 +605,21 @@ export class BattleScene extends Phaser.Scene {
         sprite.setPosition(e.x, e.y);
         if (e.flash > 0) sprite.setTintFill();
         else sprite.clearTint();
+        if (e.affixName) {
+          let label = this.affixLabels.get(e);
+          if (!label) {
+            const affix = ELITE_AFFIXES.find(a => a.name === e.affixName);
+            label = this.add.text(e.x, e.y - e.r - 14, e.affixName, {
+              fontFamily: 'sans-serif', fontSize: '12px', fontStyle: 'bold',
+              color: affix?.color ?? '#fff', stroke: '#000000', strokeThickness: 3,
+            }).setOrigin(0.5).setDepth(88);
+            this.affixLabels.set(e, label);
+            const ring = this.add.circle(e.x, e.y, e.r + 7).setStrokeStyle(3, Phaser.Display.Color.HexStringToColor(affix?.color ?? '#fff').color, 0.8).setDepth(60);
+            this.affixRings.set(e, ring);
+          }
+          label.setPosition(e.x, e.y - e.r - 14);
+          this.affixRings.get(e)?.setPosition(e.x, e.y);
+        }
       }
     }
 
@@ -633,7 +651,14 @@ export class BattleScene extends Phaser.Scene {
 
     // 敌人精灵清理
     for (const [e, sprite] of this.enemySprites) {
-      if (e.dead) { sprite.destroy(); this.enemySprites.delete(e); }
+      if (e.dead) {
+        sprite.destroy();
+        this.enemySprites.delete(e);
+        this.affixLabels.get(e)?.destroy();
+        this.affixLabels.delete(e);
+        this.affixRings.get(e)?.destroy();
+        this.affixRings.delete(e);
+      }
     }
 
     // 玩家精灵
