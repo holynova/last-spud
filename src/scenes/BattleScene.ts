@@ -15,6 +15,7 @@ import { ShopSystem, type ShopOffer } from '../domain/ShopSystem';
 import { WEAPONS, TIER_NAMES, TIER_COLORS } from '../data/weapons';
 import { SKILLS, skillStats } from '../data/skills';
 import { InputService } from '../infra/input';
+import { AudioService } from '../infra/audio';
 import { CHARACTERS, characterStats } from '../data/characters';
 import { SaveSystem, type SaveData } from '../domain/SaveSystem';
 import { localStorageAdapter } from '../infra/storage';
@@ -33,6 +34,7 @@ function memoryStorageFallback(): import('../domain/SaveSystem').StorageLike {
  */
 export class BattleScene extends Phaser.Scene {
   private input2!: InputService;
+  private sfx = new AudioService();
   private playerSprite!: Phaser.GameObjects.Image;
   private enemySprites = new Map<EnemyEntity, Phaser.GameObjects.Image>();
   private bulletSprites = new Map<BulletEntity, Phaser.GameObjects.Image>();
@@ -165,6 +167,22 @@ export class BattleScene extends Phaser.Scene {
 
     this.input2 = new InputService(this);
 
+    // 音效订阅（M 静音）
+    this.input.keyboard?.on('keydown-M', () => this.sfx.toggleMute());
+    this.input.keyboard?.on('keydown', () => { this.sfx.init(); this.sfx.resume(); });
+    this.bus.on('damage', () => this.sfx.hit());
+    this.bus.on('enemy:killed', () => this.sfx.kill());
+    this.bus.on('player:hurt', () => this.sfx.hurt());
+    this.bus.on('player:shield', () => this.sfx.heart());
+    this.bus.on('weapon:fired', ({ kind }) => {
+      if (kind === 'shotgun') this.sfx.shotgun();
+      else if (kind === 'beam') this.sfx.laser();
+      else if (kind === 'melee') this.sfx.melee();
+      else if (kind === 'aura') this.sfx.aura();
+      else this.sfx.shoot();
+    });
+    this.bus.on('fx:boom', () => this.sfx.boom());
+
     // HUD
     this.hudBars = this.add.graphics().setScrollFactor(0).setDepth(150);
     this.hpText = this.add.text(16, 8, '', {
@@ -242,6 +260,7 @@ export class BattleScene extends Phaser.Scene {
   private endGame(win: boolean): void {
     if (this.gameEnded) return;
     this.gameEnded = true;
+    if (win) this.sfx.win(); else this.sfx.lose();
     this.saveSystem.saveBest(win, this.run.wave, this.run.kills);
     this.saveSystem.clear();
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
@@ -263,6 +282,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private startWave(w: number): void {
+    this.sfx.init(); this.sfx.resume(); this.sfx.waveStart();
     startWave(this.run, this.world, w);
     this.saveProgress();
     this.bannerText.setText(`第 ${w} / 12 波${w === 12 ? ' · 最终决战' : ''}`);
@@ -331,6 +351,7 @@ export class BattleScene extends Phaser.Scene {
       bg.on('pointerout', () => bg.setFillStyle(0x2a2117));
       bg.on('pointerdown', () => {
         applyLevelPick(this.world.player, pick);
+        this.sfx.buy();
         this.pendingLevels--;
         layer.destroy();
         if (this.pendingLevels > 0) {
@@ -561,10 +582,11 @@ export class BattleScene extends Phaser.Scene {
 
     // 掉落拾取
     this.pickupSystem.update(p, dt,
-      () => { if (gainMaterial(p)) { this.pendingLevels++; this.showLevelUp(); } },
+      () => { this.sfx.pickup(); if (gainMaterial(p)) { this.pendingLevels++; this.sfx.levelup(); this.showLevelUp(); } },
       () => {
         p.hp = Math.min(p.stats.maxHp, p.hp + Math.round(p.stats.maxHp * 0.25));
         this.spawnFloatText(p.x, p.y - 30, '+25%', '#8ee05a', false);
+      this.sfx.heart();
       },
     );
 
@@ -597,6 +619,19 @@ export class BattleScene extends Phaser.Scene {
     this.syncPickupSprites();
     this.drawHud();
     this.refreshSkillHud();
+    this.drawJoystick();
+  }
+
+  private joyGfx!: Phaser.GameObjects.Graphics;
+  private drawJoystick(): void {
+    const st = this.input2.joystickState();
+    if (!st.active) return;
+    if (!this.joyGfx) this.joyGfx = this.add.graphics().setScrollFactor(0).setDepth(140);
+    this.joyGfx.clear();
+    this.joyGfx.lineStyle(2, 0xffffff, 0.3);
+    this.joyGfx.strokeCircle(st.bx, st.by, 56);
+    this.joyGfx.fillStyle(0xffffff, 0.5);
+    this.joyGfx.fillCircle(st.bx + st.dx * 56, st.by + st.dy * 56, 22);
   }
 
   /** 火圈：每帧重绘危险区域 */
