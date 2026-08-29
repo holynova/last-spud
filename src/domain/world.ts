@@ -11,6 +11,7 @@ export interface RunState {
   elapsed: number;
   dmgMul: number;
   sweeping: boolean;
+  spawnT: number;
 }
 
 export interface WorldBundle {
@@ -28,6 +29,7 @@ export function createWorld(player: PlayerEntity, wave = 1): WorldBundle {
     elapsed: 0,
     dmgMul: 1,
     sweeping: false,
+    spawnT: 0,
   };
   const world: World = {
     player,
