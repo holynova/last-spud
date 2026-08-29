@@ -18,3 +18,4 @@ build/
 .vscode/
 .idea/
 *.swp
+tests/e2e/screenshots/
