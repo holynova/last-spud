@@ -1,6 +1,9 @@
 # 地牢幸存者 · Dungeon Survivors 🗡️
 
-一个类《土豆兄弟》(Brotato) 的幸存者游戏，网页版。纯原生 JavaScript + Canvas，零依赖，无需构建。
+一个类《土豆兄弟》(Brotato) 的幸存者游戏。
+
+当前分支 `feature/phaser4`：**Phaser 4 + TypeScript + Vite** 重构版（含 OPTIMIZATION.md 全部新特性）。
+main 分支保留原生 JavaScript + Canvas 零依赖版本。
 
 美术素材来自 [Kenney](https://kenney.nl)（CC0 协议）：tiny-dungeon / micro-roguelike / ui-pack-rpg-expansion，
 由 `tools/build_assets.py` 挑选并组装进 `assets/`。
@@ -9,11 +12,13 @@
 
 ```bash
 cd last-spud
-python3 -m http.server 8377
-# 浏览器访问 http://localhost:8377
+pnpm install
+pnpm dev        # 开发（HMR）
+pnpm build      # 产出 dist/
+pnpm test       # Vitest 单测
+pnpm e2e        # Playwright 冒烟（需先 build）
+pnpm verify     # 类型检查+单测+构建+E2E 全链路
 ```
-
-（直接双击 `index.html` 也可以玩。）
 
 ## 玩法
 

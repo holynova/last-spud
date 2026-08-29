@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BattleScene } from './scenes/BattleScene';
 import { MenuScene } from './scenes/MenuScene';
+import { CodexScene } from './scenes/CodexScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
 /** Phaser 游戏入口：场景在此装配，运行时实例挂到 window.__ds 供 E2E 断言 */
@@ -15,7 +16,7 @@ const game = new Phaser.Game({
     width: window.innerWidth,
     height: window.innerHeight,
   },
-  scene: [PreloadScene, MenuScene, BattleScene],
+  scene: [PreloadScene, MenuScene, BattleScene, CodexScene],
 });
 
 declare global {

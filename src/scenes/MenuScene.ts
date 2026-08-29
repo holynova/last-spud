@@ -86,6 +86,15 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
+    // 图鉴入口
+    const codex = this.add.container(cx + 300, 575);
+    codex.add(this.add.rectangle(0, 0, 150, 44, 0x2a251d).setStrokeStyle(2, 0x55503f));
+    codex.add(this.add.text(0, 0, '图鉴', {
+      fontFamily: 'sans-serif', fontSize: '15px', color: '#e8dcb8',
+    }).setOrigin(0.5));
+    (codex.list[0] as Phaser.GameObjects.Rectangle).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.scene.start('Codex'));
+
     // 最佳纪录
     const best = this.saveSystem.loadBest();
     this.add.text(cx, 640, best
