@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>地牢幸存者 · Dungeon Survivors</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗡️</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- 战斗 HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-top">
+      <div class="hud-chip" id="hud-wave">第 1 / 12 波</div>
+      <div id="hud-timer">30</div>
+      <div class="hud-chip" id="hud-money"><img class="coin" src="assets/pickup/material.png" alt="金币"><span id="hud-money-num">0</span></div>
+    </div>
+    <div id="hud-bottom">
+      <div id="hud-left">
+        <div id="hud-hpwrap"><div id="hud-hpbar"></div><span id="hud-hptext">60/60</span></div>
+        <div id="hud-xpwrap"><div id="hud-xpbar"></div></div>
+      </div>
+      <div id="hud-level">Lv.1</div>
+      <div id="hud-bars">
+        <div id="hud-skills"></div>
+        <div id="hud-weapons"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="banner"></div>
+  <div id="mute-tip">M 静音</div>
+  <div id="loading">加载素材中…</div>
+
+  <!-- 主菜单 / 角色选择 -->
+  <div id="overlay-menu" class="overlay hidden">
+    <div class="menu-box">
+      <h1 class="game-title">地牢幸存者</h1>
+      <p class="subtitle">DUNGEON SURVIVORS · 深入地牢 12 波</p>
+      <p class="menu-tip">WASD / 方向键移动，武器与技能自动施放。<br>升级时习得并强化主动技能，波次之间购买装备，活过第 12 波！</p>
+      <h2 class="select-title">选择你的英雄</h2>
+      <div id="char-list"></div>
+      <button id="btn-continue" class="btn ghost hidden">继续上局</button>
+      <button id="btn-start" class="btn big" disabled>选择一名英雄</button>
+      <p id="best-record" class="best-record"></p>
+    </div>
+  </div>
+
+  <!-- 升级四选一 -->
+  <div id="overlay-levelup" class="overlay hidden">
+    <div class="panel-box">
+      <h2 class="panel-title">升级 · 选择一项成长</h2>
+      <div id="levelup-list" class="card-list"></div>
+    </div>
+  </div>
+
+  <!-- 波间商店 -->
+  <div id="overlay-shop" class="overlay hidden">
+    <div class="panel-box shop-box">
+      <div class="shop-head">
+        <h2 class="panel-title">地牢商人 · 补给时间</h2>
+        <div class="shop-money"><img class="coin big" src="assets/pickup/material.png" alt="金币"><span id="shop-money">0</span></div>
+      </div>
+      <div id="shop-list" class="card-list"></div>
+      <div class="shop-foot">
+        <button id="btn-reroll" class="btn">重抽 · <img class="coin" src="assets/pickup/material.png" alt=""><span id="reroll-cost">5</span></button>
+        <button id="btn-nextwave" class="btn big">出发 → 下一波</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 暂停 -->
+  <div id="overlay-pause" class="overlay hidden">
+    <div class="panel-box">
+      <h2 class="panel-title">暂停</h2>
+      <div id="pause-stats" class="stat-grid"></div>
+      <div class="shop-foot">
+        <button id="btn-resume" class="btn big">继续战斗</button>
+        <button id="btn-quit" class="btn">放弃本局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算 -->
+  <div id="overlay-over" class="overlay hidden">
+    <div class="panel-box">
+      <h2 class="panel-title" id="over-title">你倒在了地牢深处</h2>
+      <div id="over-stats" class="stat-grid"></div>
+      <button id="btn-again" class="btn big">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/data.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
