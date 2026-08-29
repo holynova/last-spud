@@ -26,6 +26,9 @@ export interface StorageLike {
 
 export const SAVE_KEY = 'lastspud_save';
 export const BEST_KEY = 'lastspud_best';
+export const META_KEY = 'lastspud_meta';
+
+export interface MetaData { totalKills: number }
 
 export interface BestRecord { wave: number; kills: number; win: boolean }
 
@@ -72,6 +75,23 @@ export class SaveSystem {
         this.storage.setItem(BEST_KEY, JSON.stringify(rec));
       }
     } catch { /* 忽略 */ }
+  }
+
+  loadMeta(): MetaData {
+    try {
+      const raw = this.storage.getItem(META_KEY);
+      return raw ? (JSON.parse(raw) as MetaData) : { totalKills: 0 };
+    } catch {
+      return { totalKills: 0 };
+    }
+  }
+
+  /** 累计击杀入账（局外解锁用） */
+  addMetaKills(kills: number): MetaData {
+    const meta = this.loadMeta();
+    meta.totalKills += Math.max(0, kills);
+    try { this.storage.setItem(META_KEY, JSON.stringify(meta)); } catch { /* 忽略 */ }
+    return meta;
   }
 
   loadBest(): BestRecord | null {

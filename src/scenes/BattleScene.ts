@@ -86,9 +86,9 @@ export class BattleScene extends Phaser.Scene {
 
   create(): void {
     // 地面与边界
-    this.add.tileSprite(ARENA_W / 2, ARENA_H / 2, ARENA_W, ARENA_H, 'ground/floor_pattern');
+    this.wallTintTargets = [];
     for (const t of wallPositions()) {
-      this.add.image(t.x, t.y, 'ground/wall').setDisplaySize(WALL, WALL);
+      this.wallTintTargets.push(this.add.image(t.x, t.y, 'ground/wall').setDisplaySize(WALL, WALL));
     }
     const rng = mulberry32(Date.now() >>> 0);
     for (const d of buildDecorList(rng)) {
@@ -109,6 +109,10 @@ export class BattleScene extends Phaser.Scene {
     this.charIdx = CHARACTERS.indexOf(char);
     this.weaponKey = char.start;
     const player = createPlayer(char.key, ARENA_W / 2, ARENA_H / 2, characterStats(char), char.start);
+    // 特性：角色初始技能
+    if (char.startSkill) {
+      player.skills.push({ key: char.startSkill, level: 1, timer: 1, tick: 0, castAnim: 0 });
+    }
     if (this.saveData) {
       const sv = this.saveData;
       Object.assign(player.stats, sv.stats);
@@ -245,8 +249,25 @@ export class BattleScene extends Phaser.Scene {
     // 摄像机
     this.cameras.main.setBounds(0, 0, ARENA_W, ARENA_H);
     this.cameras.main.startFollow(this.playerSprite, true, 0.12, 0.12);
+    this.groundSprite = this.add.tileSprite(ARENA_W / 2, ARENA_H / 2, ARENA_W, ARENA_H, 'ground/floor_pattern').setDepth(-10);
 
     this.startWave(1);
+  }
+
+  private groundSprite!: Phaser.GameObjects.TileSprite;
+  private wallTintTargets: Phaser.GameObjects.Image[] = [];
+
+  /** 特性：多地图换皮——每 4 波切换地牢/墓穴/熔岩色调 */
+  private applyTheme(wave: number): void {
+    const themes = [
+      { bg: '#1b1410', ground: 0xffffff, wall: 0xffffff },
+      { bg: '#10161d', ground: 0x9fb4c8, wall: 0x9fb4c8 },
+      { bg: '#221010', ground: 0xff9a76, wall: 0xcf7a5a },
+    ];
+    const theme = themes[Math.min(2, Math.floor((wave - 1) / 4))];
+    this.groundSprite.setTint(theme.ground);
+    this.cameras.main.setBackgroundColor(theme.bg);
+    for (const w of this.wallTintTargets) w.setTint(theme.wall);
   }
 
   private saveProgress(): void {
@@ -296,6 +317,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.gameEnded) return;
     this.gameEnded = true;
     if (win) this.sfx.win(); else this.sfx.lose();
+    this.saveSystem.addMetaKills(this.run.kills);
     this.saveSystem.saveBest(win, this.run.wave, this.run.kills);
     this.saveSystem.clear();
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
@@ -318,6 +340,7 @@ export class BattleScene extends Phaser.Scene {
 
   private startWave(w: number): void {
     this.sfx.init(); this.sfx.resume(); this.sfx.waveStart();
+    this.applyTheme(w);
     startWave(this.run, this.world, w);
     this.saveProgress();
     this.bannerText.setText(`第 ${w} / 12 波${w === 12 ? ' · 最终决战' : ''}`);

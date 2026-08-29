@@ -51,3 +51,13 @@ describe('存档系统', () => {
     expect(s.loadBest()?.win).toBe(true);
   });
 });
+
+describe('局外 meta（累计击杀解锁）', () => {
+  it('累计击杀入账并持久', () => {
+    const s = new SaveSystem(memoryStorage());
+    expect(s.loadMeta().totalKills).toBe(0);
+    s.addMetaKills(120);
+    s.addMetaKills(180);
+    expect(s.loadMeta().totalKills).toBe(300);
+  });
+});

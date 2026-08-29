@@ -34,7 +34,7 @@ function makeWorld() {
 
 describe('weaponStats', () => {
   it('10 种武器全部有定义', () => {
-    expect(Object.keys(WEAPONS).length).toBe(10);
+    expect(Object.keys(WEAPONS).length).toBe(11); // 10 原版 + 精灵图腾
   });
 
   it('4 阶成长：伤害/冷却/射程单调', () => {
