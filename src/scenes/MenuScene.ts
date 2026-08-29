@@ -30,32 +30,43 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: 'sans-serif', fontSize: '13px', color: '#a89d84',
     }).setOrigin(0.5);
 
-    // 角色卡
+    // 角色卡（含局外解锁）
+    const meta = this.saveSystem.loadMeta();
     this.cards = [];
     CHARACTERS.forEach((c, i) => {
-      const x = cx + (i - 1.5) * 190;
+      const x = cx + (i - 2.5) * 152;
+      const locked = (c.unlockKills ?? 0) > meta.totalKills;
       const card = this.add.container(x, 320);
-      const bg = this.add.rectangle(0, 0, 172, 250, 0x2a2117).setStrokeStyle(3, i === this.selected ? 0xffd257 : 0x55503f);
-      const face = this.add.image(0, -68, c.sprite).setScale(2.6);
-      const name = this.add.text(0, 12, c.name, {
-        fontFamily: 'sans-serif', fontSize: '19px', color: '#ffffff', fontStyle: 'bold',
+      const bg = this.add.rectangle(0, 0, 140, 240, 0x2a2117)
+        .setStrokeStyle(3, (!locked && i === this.selected) ? 0xffd257 : 0x55503f);
+      const face = this.add.image(0, -66, c.sprite).setScale(locked ? 2 : 2.3);
+      face.setAlpha(locked ? 0.35 : 1);
+      const name = this.add.text(0, 14, c.name, {
+        fontFamily: 'sans-serif', fontSize: '16px', color: locked ? '#8f866f' : '#ffffff', fontStyle: 'bold',
       }).setOrigin(0.5);
-      const desc = this.add.text(0, 44, c.desc, {
-        fontFamily: 'sans-serif', fontSize: '11px', color: '#a89d84', align: 'center',
-        wordWrap: { width: 150 }, lineSpacing: 4,
+      const desc = this.add.text(0, 42, locked ? `累计击杀 ${c.unlockKills} 解锁（当前 ${meta.totalKills}）` : c.desc, {
+        fontFamily: 'sans-serif', fontSize: '10px', color: locked ? '#8f866f' : '#a89d84', align: 'center',
+        wordWrap: { width: 124 }, lineSpacing: 4,
       }).setOrigin(0.5, 0);
       card.add([bg, face, name, desc]);
-      bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerover', () => bg.setFillStyle(0x362d1e));
-      bg.on('pointerout', () => bg.setFillStyle(0x2a2117));
-      bg.on('pointerdown', () => {
-        this.selected = i;
-        for (let j = 0; j < this.cards.length; j++) {
-          const b = this.cards[j].list[0] as Phaser.GameObjects.Rectangle;
-          b.setStrokeStyle(3, j === i ? 0xffd257 : 0x55503f);
-        }
-        (this.startBtn.list[1] as Phaser.GameObjects.Text).setColor('#ffe9c4');
-      });
+      if (!locked) {
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerover', () => bg.setFillStyle(0x362d1e));
+        bg.on('pointerout', () => bg.setFillStyle(0x2a2117));
+        bg.on('pointerdown', () => {
+          this.selected = i;
+          for (let j = 0; j < this.cards.length; j++) {
+            const b = this.cards[j].list[0] as Phaser.GameObjects.Rectangle;
+            b.setStrokeStyle(3, j === i ? 0xffd257 : 0x55503f);
+          }
+          (this.startBtn.list[1] as Phaser.GameObjects.Text).setColor('#ffe9c4');
+        });
+      } else {
+        card.add(this.add.text(0, -104, '未解锁', {
+          fontFamily: 'sans-serif', fontSize: '11px', color: '#ffd257',
+          backgroundColor: '#00000088', padding: { x: 6, y: 2 },
+        }).setOrigin(0.5));
+      }
       this.cards.push(card);
     });
 
