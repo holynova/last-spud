@@ -15,6 +15,7 @@ export function createPlayer(defKey: string, x: number, y: number, stats: Player
     stats,
     weapons: [{ key: startWeapon, tier: 1, timer: 0.2, aim: 0, recoil: 0 }],
     skills: [],
+    synergies: {},
     xp: 0, level: 1, money: 0,
     shield: 0, shieldFlash: 0,
     frenzyT: 0, frenzyAspd: 0,

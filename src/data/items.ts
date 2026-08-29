@@ -1,4 +1,6 @@
-import type { Stats } from '../domain/types';
+import type { Stats, Synergies } from '../domain/types';
+
+export interface StatTarget { stats: Stats; hp: number; synergies: Synergies }
 
 // ============ 升级词条（属性强化部分） ============
 
@@ -7,7 +9,7 @@ export interface UpgradeDef {
   icon: string;
   d: string;
   w: number;
-  f: (p: { stats: Stats; hp: number }) => void;
+  f: (p: StatTarget) => void;
 }
 
 export const UPGRADES: UpgradeDef[] = [
@@ -33,7 +35,7 @@ export interface ItemDef {
   n: string;
   icon: string;
   d: string;
-  f: (p: { stats: Stats; hp: number }) => void;
+  f: (p: StatTarget) => void;
 }
 
 export const ITEMS: ItemDef[] = [
@@ -51,4 +53,8 @@ export const ITEMS: ItemDef[] = [
   { n: '巨人腰带', icon: 'item/giant_belt',   d: '最大生命 +14，移速 -4%',  f: p => { p.stats.maxHp += 14; p.hp += 14; p.stats.speed -= 0.04; } },
   { n: '毒液瓶',   icon: 'item/venom',        d: '伤害 +6%，射程 +8%',     f: p => { p.stats.dmg += 0.06; p.stats.range += 0.08; } },
   { n: '恶魔契约', icon: 'item/demon_pact',   d: '伤害 +20%，最大生命 -5',  f: p => { p.stats.dmg += 0.2; p.stats.maxHp -= 5; p.hp = Math.min(p.hp, p.stats.maxHp); } },
+  { n: '火焰之心', icon: 'item/rage_potion',  d: '火系伤害 +25%',          f: p => { p.synergies.fire = (p.synergies.fire ?? 0) + 0.25; } },
+  { n: '雷电球',   icon: 'item/energy_core',  d: '电系伤害 +25%',          f: p => { p.synergies.electric = (p.synergies.electric ?? 0) + 0.25; } },
+  { n: '战意徽章', icon: 'item/executioner',  d: '近战伤害 +25%',          f: p => { p.synergies.melee = (p.synergies.melee ?? 0) + 0.25; } },
+  { n: '投掷手套', icon: 'item/swift_potion', d: '投掷伤害 +25%',          f: p => { p.synergies.throw = (p.synergies.throw ?? 0) + 0.25; } },
 ];

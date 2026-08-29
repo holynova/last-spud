@@ -4,7 +4,7 @@ import { buildDecorList, wallPositions } from '../domain/layout';
 import { mulberry32 } from '../utils/rng';
 import { createWorld } from '../domain/world';
 import { createPlayer, clampToArena, gainMaterial, updatePlayer } from '../domain/PlayerSystem';
-import { updateBullet } from '../domain/WeaponSystem';
+import { updateBullet, updateMinions } from '../domain/WeaponSystem';
 import { updateEnemy } from '../domain/EnemySystem';
 import { dist2 } from '../utils/math';
 import { ELITE_AFFIXES } from '../domain/entities';
@@ -43,6 +43,7 @@ export class BattleScene extends Phaser.Scene {
   private affixLabels = new Map<EnemyEntity, Phaser.GameObjects.Text>();
   private affixRings = new Map<EnemyEntity, Phaser.GameObjects.Arc>();
   private pickupSprites = new Map<import('../domain/PickupSystem').PickupEntity, Phaser.GameObjects.Image>();
+  private minionSprites = new Map<import('../domain/types').Minion, Phaser.GameObjects.Image>();
   private hpText!: Phaser.GameObjects.Text;
   private weaponText!: Phaser.GameObjects.Text;
   private bannerText!: Phaser.GameObjects.Text;
@@ -600,6 +601,20 @@ export class BattleScene extends Phaser.Scene {
     updatePlayer(this.world, dt, this.input2.moveIntent());
     clampToArena(p, { w: ARENA_W, h: ARENA_H, wall: WALL });
 
+    // 召唤物
+    updateMinions(this.world, dt);
+    for (const m of this.world.minions) {
+      let sprite = this.minionSprites.get(m);
+      if (!sprite) {
+        sprite = this.add.image(m.x, m.y, 'skill/chain').setScale(0.9).setDepth(70);
+        this.minionSprites.set(m, sprite);
+      }
+      sprite.setPosition(m.x, m.y).setAlpha(Math.min(1, m.life));
+    }
+    for (const [m, sprite] of this.minionSprites) {
+      if (m.life <= 0) { sprite.destroy(); this.minionSprites.delete(m); }
+    }
+
     // 技能自动施放 + 火圈结算
     updateSkills(this.world, dt);
     updateHazards(this.world, dt);
@@ -672,7 +687,7 @@ export class BattleScene extends Phaser.Scene {
       }
       let sprite = this.bulletSprites.get(b);
       if (!sprite) {
-        sprite = this.add.image(b.x, b.y, 'weapon/' + this.weaponKey).setScale(b.boom ? 1.1 : 0.7);
+        sprite = this.add.image(b.x, b.y, this.weaponKey === 'totem' ? 'skill/chain' : 'weapon/' + this.weaponKey).setScale(b.boom ? 1.1 : 0.7);
         sprite.setTint(Phaser.Display.Color.HexStringToColor(b.color).color);
         this.bulletSprites.set(b, sprite);
       }

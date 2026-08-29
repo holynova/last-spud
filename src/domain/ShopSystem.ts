@@ -98,7 +98,7 @@ export class ShopSystem {
         p.weapons.push({ key: o.weaponKey!, tier: o.tier!, timer: 0.2, aim: 0, recoil: 0 });
       }
     } else {
-      o.item!.f({ stats: p.stats, hp: p.hp });
+      o.item!.f({ stats: p.stats, hp: p.hp, synergies: p.synergies });
       p.hp = Math.min(p.hp, p.stats.maxHp);
     }
     p.money -= o.price;

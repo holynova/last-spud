@@ -1,6 +1,7 @@
 // ============ 武器配置与阶数成长 ============
 
-export type WeaponKind = 'gun' | 'shotgun' | 'throw' | 'boomerang' | 'melee' | 'beam' | 'aura';
+export type WeaponKind = 'gun' | 'shotgun' | 'throw' | 'boomerang' | 'melee' | 'beam' | 'aura' | 'summon';
+export type WeaponTag = 'fire' | 'electric' | 'melee' | 'throw';
 
 export interface WeaponDef {
   name: string;
@@ -17,6 +18,7 @@ export interface WeaponDef {
   spread?: number;    // 散布弧度
   life?: number;      // 弹药寿命（覆盖射程换算）
   arc?: number;       // 近战扇形角
+  tags?: WeaponTag[]; // 流派标签（协同道具加成）
   desc: string;
 }
 
@@ -24,16 +26,19 @@ export const WEAPONS: Record<string, WeaponDef> = {
   pistol: {
     name: '橡木魔杖', icon: 'weapon/pistol', kind: 'gun', color: '#c9a86a',
     dmg: 13, cd: 0.85, range: 330, pspd: 560, count: 1, pierce: 0, kb: 90,
+    tags: ['electric'],
     desc: '学徒的起手魔杖，射速稳定',
   },
   smg: {
     name: '毒藤魔杖', icon: 'weapon/smg', kind: 'gun', color: '#8fd86e',
     dmg: 5, cd: 0.2, range: 280, pspd: 620, count: 1, pierce: 0, kb: 30, spread: 0.14,
+    tags: ['electric'],
     desc: '射速极快的毒刺连发',
   },
   shotgun: {
     name: '碎石战斧', icon: 'weapon/shotgun', kind: 'shotgun', color: '#c9b06a',
     dmg: 8, cd: 1.35, range: 240, pspd: 500, count: 5, spread: 0.5, pierce: 0, kb: 160, life: 0.55,
+    tags: ['melee'],
     desc: '近身一击崩出 5 枚碎石',
   },
   sniper: {
@@ -44,16 +49,19 @@ export const WEAPONS: Record<string, WeaponDef> = {
   knife: {
     name: '飞刀', icon: 'weapon/knife', kind: 'throw', color: '#d8f0ff',
     dmg: 15, cd: 0.62, range: 310, pspd: 600, count: 1, pierce: 2, kb: 70, spread: 0.05,
+    tags: ['throw'],
     desc: '掷出并穿透 2 个敌人',
   },
   boomerang: {
     name: '回旋飞斧', icon: 'weapon/boomerang', kind: 'boomerang', color: '#c9f06e',
     dmg: 11, cd: 1.5, range: 350, pspd: 440, pierce: 99, kb: 90,
+    tags: ['throw'],
     desc: '掷出后飞回手中，两段伤害',
   },
   club: {
     name: '战锤', icon: 'weapon/club', kind: 'melee', color: '#e8b04b',
     dmg: 26, cd: 1.05, range: 105, arc: 2.4, kb: 320,
+    tags: ['melee'],
     desc: '扇形横扫，击退效果极强',
   },
   laser: {
@@ -66,9 +74,16 @@ export const WEAPONS: Record<string, WeaponDef> = {
     dmg: 7, cd: 1.0, range: 125,
     desc: '周期电击周身所有敌人',
   },
+  totem: {
+    name: '精灵图腾', icon: 'skill/chain', kind: 'summon', color: '#8ee05a',
+    dmg: 9, cd: 8, range: 380, pspd: 520, pierce: 0, kb: 40,
+    tags: ['electric'],
+    desc: '召唤小精灵协战 8 秒（至多 2 个）',
+  },
   flamer: {
     name: '喷火魔杖', icon: 'weapon/flamer', kind: 'gun', color: '#ff9530',
     dmg: 3.5, cd: 0.07, range: 190, pspd: 300, count: 1, pierce: 1, kb: 20, spread: 0.4, life: 0.55,
+    tags: ['fire'],
     desc: '短程火焰喷射，弹幕成片',
   },
 };

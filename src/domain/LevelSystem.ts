@@ -54,7 +54,7 @@ export function pickLevelUps(pool: LevelPick[], n: number, rng: Rng = Math.rando
 /** 应用一次升级选择 */
 export function applyLevelPick(p: PlayerEntity, pick: LevelPick): void {
   if (pick.kind === 'stat') {
-    pick.def.f({ stats: p.stats, hp: p.hp });
+    pick.def.f({ stats: p.stats, hp: p.hp, synergies: p.synergies });
     // maxHp 变更后夹紧当前生命
     p.hp = Math.min(p.hp, p.stats.maxHp);
     if (pick.def.n === '厚皮' || pick.def.n === '钢铁之躯' || pick.def.n === '生命药剂') {

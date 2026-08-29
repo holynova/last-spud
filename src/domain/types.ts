@@ -20,6 +20,16 @@ export interface Stats {
   luck: number;       // 幸运（掉落加成）
 }
 
+export type Synergies = Record<string, number>;
+
+export interface Minion {
+  x: number; y: number;
+  life: number;
+  shootT: number;
+  dmg: number;
+  range: number;
+}
+
 export interface WeaponInstance {
   key: string;
   tier: number;       // 1~4
@@ -46,6 +56,7 @@ export interface SkillInstance {
 }
 
 export interface PlayerEntity extends Vec2 {
+  synergies: Synergies;
   defKey: string;
   r: number;
   hp: number;
@@ -118,6 +129,7 @@ export interface World {
   enemies: EnemyEntity[];
   bullets: BulletEntity[];
   hazards: Hazard[];
+  minions: Minion[];
   grid: import('./SpatialGrid').SpatialGrid<EnemyEntity>;
   wave: number;
   dmgMul: number;
