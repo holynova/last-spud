@@ -72,6 +72,7 @@ export class AudioService {
   pickup(): void { if (!this.gate('pickup', 35)) return; this.tone('sine', 880, 1320, 0.07, 0.12); }
   heart(): void { this.tone('sine', 660, 990, 0.1, 0.2); this.tone('sine', 990, 1320, 0.12, 0.2, 0.08); }
   hurt(): void { if (!this.gate('hurt', 100)) return; this.tone('sawtooth', 220, 60, 0.22, 0.4); this.noise(0.16, 0.3); }
+  heartbeat(): void { if (!this.gate('heartbeat', 750)) return; this.tone('sine', 55, 40, 0.12, 0.6); }
   boom(): void { this.noise(0.35, 0.5); this.tone('sawtooth', 140, 40, 0.35, 0.4); }
   levelup(): void { [523, 659, 784, 1047].forEach((f, i) => this.tone('square', f, f, 0.12, 0.2, i * 0.09)); }
   buy(): void { this.tone('sine', 990, 990, 0.06, 0.2); this.tone('sine', 1480, 1480, 0.1, 0.2, 0.06); }

@@ -6,6 +6,7 @@ import { createWorld } from '../domain/world';
 import { createPlayer, clampToArena, gainMaterial, updatePlayer } from '../domain/PlayerSystem';
 import { updateBullet } from '../domain/WeaponSystem';
 import { updateEnemy } from '../domain/EnemySystem';
+import { dist2 } from '../utils/math';
 import { ELITE_AFFIXES } from '../domain/entities';
 import { startWave, sweepWave, updateWave } from '../domain/WaveDirector';
 import { createEnemy } from '../domain/entities';
@@ -54,6 +55,8 @@ export class BattleScene extends Phaser.Scene {
   private afterLevelUpsCb?: () => void;
   private pickupSystem!: PickupSystem;
   private shop!: ShopSystem;
+  private destructibles: Array<{ x: number; y: number; hp: number; sprite: Phaser.GameObjects.Image }> = [];
+  private vignette!: Phaser.GameObjects.Rectangle;
 
   // 领域状态（渲染只读）
   private world!: ReturnType<typeof createWorld>['world'];
@@ -90,6 +93,15 @@ export class BattleScene extends Phaser.Scene {
     for (const d of buildDecorList(rng)) {
       this.add.image(d.x, d.y, d.kind).setScale(d.scale).setRotation(d.rotation).setAlpha(0.92);
     }
+    // 特性：可破坏木桶——箱子/木桶装饰可被武器打碎掉材料
+    for (const d of buildDecorList(rng, 14)) {
+      if (d.kind !== 'decor/crate' && d.kind !== 'decor/barrel') continue;
+      const sprite = this.add.image(d.x, d.y, d.kind).setScale(2.2).setRotation(d.rotation);
+      this.destructibles.push({ x: d.x, y: d.y, hp: 20, sprite });
+    }
+    // 特性：低血量红晕
+    this.vignette = this.add.rectangle(this.scale.width / 2, this.scale.height / 2,
+      this.scale.width, this.scale.height, 0xff1a1a, 0).setScrollFactor(0).setDepth(140);
 
     // 领域装配：按角色（或存档）初始化
     const char = CHARACTERS[this.saveData ? CHARACTERS.findIndex(c => c.key === this.saveData!.char) : this.charIdx] ?? CHARACTERS[0];
@@ -636,6 +648,28 @@ export class BattleScene extends Phaser.Scene {
     // 子弹
     for (const b of this.world.bullets) {
       updateBullet(this.world, b, dt);
+      // 特性：可破坏木桶受击
+      if (b.fromPlayer && b.life > 0) {
+        for (const d of this.destructibles) {
+          if (d.hp <= 0) continue;
+          if (dist2(b.x, b.y, d.x, d.y) < 30 * 30) {
+            d.hp -= b.dmg;
+            if (b.boom) continue; // 回旋镖不消耗
+            b.life = 0;
+            if (d.hp <= 0) {
+              d.sprite.destroy();
+              const n = 2 + Math.floor(Math.random() * 3);
+              for (let i = 0; i < n; i++) {
+                this.pickupSystem.pickups.push({
+                  x: d.x + (Math.random() - 0.5) * 40, y: d.y + (Math.random() - 0.5) * 40,
+                  type: 'material', t: Math.random() * 6, vx: (Math.random() - 0.5) * 120,
+                  vy: (Math.random() - 0.5) * 120, magnet: false, collected: false,
+                });
+              }
+            }
+          }
+        }
+      }
       let sprite = this.bulletSprites.get(b);
       if (!sprite) {
         sprite = this.add.image(b.x, b.y, 'weapon/' + this.weaponKey).setScale(b.boom ? 1.1 : 0.7);
@@ -671,6 +705,21 @@ export class BattleScene extends Phaser.Scene {
     this.refreshSkillHud();
     this.drawJoystick();
     this.drawBossBar();
+    this.updateVignette(dt);
+  }
+
+  /** 特性：低血量反馈——红晕呼吸 + 心跳 */
+  private updateVignette(dt: number): void {
+    void dt;
+    const p = this.world.player;
+    const pct = p.hp / p.stats.maxHp;
+    if (pct < 0.3 && p.hp > 0) {
+      const intensity = (0.3 - pct) / 0.3;
+      this.vignette.setFillStyle(0xff1a1a, 0.12 + intensity * 0.18 * (0.6 + 0.4 * Math.sin(this.time.now / 220)));
+      if (Math.floor(this.time.now / 750) !== Math.floor((this.time.now - 16) / 750)) this.sfx.heartbeat();
+    } else {
+      this.vignette.setFillStyle(0xff1a1a, 0);
+    }
   }
 
   /** 特性：Boss 顶部血条（Boss 在场时显示于屏幕上方） */
