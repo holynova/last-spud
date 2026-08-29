@@ -9,7 +9,7 @@ KENNEY = '/tmp/kenney'
 TINY = f'{KENNEY}/tiny-dungeon/Tiles'
 MICRO = f'{KENNEY}/micro-roguelike/Tiles/Colored'
 UI = f'{KENNEY}/ui-pack-rpg-expansion/PNG'
-OUT = os.path.join(os.path.dirname(__file__), '..', 'assets')
+OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'assets')
 
 def tile(src, idx):
     return os.path.join(src, f'tile_{idx:04d}.png')

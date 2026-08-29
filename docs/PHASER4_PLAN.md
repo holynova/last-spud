@@ -38,8 +38,8 @@ tests/
 
 ### P0 脚手架与基建
 - [x] T0.1 建分支 + 本计划文档
-- [ ] T0.2 Vite+TS+Phaser 脚手架：删除旧 js/css/test（保留于 main），建 src/ 结构，`pnpm dev/build` 可跑
-- [ ] T0.3 Playwright E2E 冒烟：加载页面零控制台报错 + 截图 + 游戏实例可访问
+- [x] T0.2 Vite+TS+Phaser 脚手架：删除旧 js/css/test（保留于 main），建 src/ 结构，`pnpm dev/build` 可跑
+- [x] T0.3 Playwright E2E 冒烟：加载页面零控制台报错 + 截图 + 游戏实例可访问
 - 验收：`pnpm typecheck && pnpm test && pnpm e2e` 全绿
 
 ### P1 场景与渲染基座

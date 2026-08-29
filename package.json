@@ -5,16 +5,28 @@
   "description": "地牢幸存者 Dungeon Survivors —— 类 Brotato 幸存者游戏，纯原生 JS + Canvas，零运行时依赖",
   "type": "commonjs",
   "scripts": {
-    "start": "python3 -m http.server 8377",
-    "dev": "python3 -m http.server 8377",
-    "test": "node test/smoke.js && node test/stress.js",
-    "test:smoke": "node test/smoke.js",
-    "test:stress": "node test/stress.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node tests/e2e/smoke.mjs",
+    "verify": "pnpm typecheck && pnpm test && pnpm build && pnpm e2e",
     "assets": "python3 tools/build_assets.py"
   },
   "engines": {
     "node": ">=18"
   },
   "packageManager": "pnpm@11.22.0",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  }
 }
