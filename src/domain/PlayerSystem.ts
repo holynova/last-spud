@@ -51,7 +51,7 @@ export function updatePlayer(world: World, dt: number, intent: MoveIntent): void
 
   if (intent.mx || intent.my) {
     const len = Math.hypot(intent.mx, intent.my);
-    const sp = 235 * st.speed * (1 + frenzySpeed);
+    const sp = 235 * st.speed * (1 + frenzySpeed) * (world.mud ? 0.6 : 1);
     p.x += (intent.mx / len) * sp * dt;
     p.y += (intent.my / len) * sp * dt;
     p.faceAng = Math.atan2(intent.my, intent.mx);

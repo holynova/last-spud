@@ -14,6 +14,7 @@ export interface RunState {
   spawnT: number;
   combo: number;
   comboT: number;
+  event: string | null;
 }
 
 export interface WorldBundle {
@@ -34,6 +35,7 @@ export function createWorld(player: PlayerEntity, wave = 1): WorldBundle {
     spawnT: 0,
     combo: 0,
     comboT: 0,
+    event: null,
   };
   const world: World = {
     player,
@@ -41,6 +43,9 @@ export function createWorld(player: PlayerEntity, wave = 1): WorldBundle {
     bullets: [],
     hazards: [],
     minions: [],
+    dropMul: 1,
+    mud: false,
+    damageBy: {} as Record<string, number>,
     grid: new SpatialGrid<EnemyEntity>(96),
     wave,
     dmgMul: 1,

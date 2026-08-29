@@ -11,6 +11,8 @@ export interface DamageWorld {
   enemies: EnemyEntity[];
   grid: SpatialGrid<EnemyEntity>;
   dmgMul: number;
+  dropMul?: number;
+  damageBy?: Record<string, number>;
   emit<E extends keyof GameEvents>(event: E, payload: GameEvents[E]): void;
 }
 
@@ -23,9 +25,10 @@ export function rollDamage(p: PlayerEntity, base: number, critForce?: boolean, r
 /** 对敌人结算伤害：击退/闪白/飘字事件/死亡（silent 用于 DoT） */
 export function dealDamage(
   g: DamageWorld, e: EnemyEntity, rolled: RolledDamage,
-  kb: number, fromX: number, fromY: number, silent = false, rng: Rng = Math.random,
+  kb: number, fromX: number, fromY: number, silent = false, rng: Rng = Math.random, src?: string,
 ): void {
   if (e.dead) return;
+  if (src && g.damageBy) g.damageBy[src] = (g.damageBy[src] ?? 0) + Math.max(1, Math.round(rolled.val));
   const dmg = Math.max(1, Math.round(rolled.val * (e.dmgTakenMul ?? 1)));
   e.hp -= dmg;
   e.flash = 0.1;
@@ -45,7 +48,7 @@ export function killEnemy(g: DamageWorld, e: EnemyEntity, rng: Rng = Math.random
 
   const luck = g.player.stats.luck;
   const extra = rng() < Math.min(0.5, 0.2 + luck * 0.06) ? 1 : 0;
-  g.emit('enemy:killed', { enemy: e, drops: e.def.xp + extra });
+  g.emit('enemy:killed', { enemy: e, drops: (e.def.xp + extra) * (e.bonusDrops ?? 1) * (g.dropMul ?? 1) });
 
   if (e.def.splitInto) {
     for (let i = 0; i < (e.def.splitCount ?? 2); i++) {

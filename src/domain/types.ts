@@ -22,12 +22,8 @@ export interface Stats {
 
 export type Synergies = Record<string, number>;
 
-export interface Minion {
-  x: number; y: number;
-  life: number;
-  shootT: number;
-  dmg: number;
-  range: number;
+export interface Minion extends Vec2 {
+  life: number; shootT: number; dmg: number; range: number;
 }
 
 export interface WeaponInstance {
@@ -45,6 +41,7 @@ export interface Hazard {
   dps: number;
   ttl: number; maxTtl: number;
   tick: number;
+  follow?: boolean;   // 觉醒：跟随玩家
 }
 
 export interface SkillInstance {
@@ -95,6 +92,7 @@ export interface EnemyEntity extends Vec2 {
   dashing: number;
   dead: boolean;
   t: number;
+  bonusDrops?: number;   // 宝箱怪等多倍掉落
   affixName?: string;    // 精英词缀显示名
   dmgTakenMul?: number;  // 石肤：受伤倍率
   vampiric?: boolean;    // 吸血：接触伤害回血
@@ -121,6 +119,7 @@ export interface BulletEntity extends Vec2 {
   returning: boolean;
   hitMap: Map<EnemyEntity, number> | null;
   hitSet: Set<EnemyEntity> | null;
+  srcKey?: string;    // 伤害来源（战斗统计）
 }
 
 /** 领域系统需要的世界视图（由场景装配提供） */
@@ -130,10 +129,13 @@ export interface World {
   bullets: BulletEntity[];
   hazards: Hazard[];
   minions: Minion[];
+  dropMul: number;
+  mud: boolean;
+  damageBy: Record<string, number>;
+  emit<E extends keyof GameEvents>(event: E, payload: GameEvents[E]): void;
   grid: import('./SpatialGrid').SpatialGrid<EnemyEntity>;
   wave: number;
   dmgMul: number;
-  emit<E extends keyof GameEvents>(event: E, payload: GameEvents[E]): void;
 }
 
 export interface GameEvents {

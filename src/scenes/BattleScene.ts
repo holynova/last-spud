@@ -8,7 +8,7 @@ import { updateBullet, updateMinions } from '../domain/WeaponSystem';
 import { updateEnemy } from '../domain/EnemySystem';
 import { dist2 } from '../utils/math';
 import { ELITE_AFFIXES } from '../domain/entities';
-import { startWave, sweepWave, updateWave } from '../domain/WaveDirector';
+import { startWave, sweepWave, updateWave, WAVE_EVENTS } from '../domain/WaveDirector';
 import { createEnemy } from '../domain/entities';
 import { PickupSystem } from '../domain/PickupSystem';
 import { applyLevelPick, buildLevelupPool, describePick, pickLevelUps } from '../domain/LevelSystem';
@@ -295,6 +295,14 @@ export class BattleScene extends Phaser.Scene {
         `生命 ${Math.ceil(p.hp)}/${Math.round(p.stats.maxHp)}   伤害 ${Math.round(p.stats.dmg * 100)}%   攻速 ${Math.round(p.stats.aspd * 100)}%\n` +
         `移速 ${Math.round(p.stats.speed * 100)}%   暴击 ${Math.round(p.stats.crit * 100)}%   护甲 ${p.stats.armor}   闪避 ${Math.round(p.stats.dodge * 100)}%`,
         { fontFamily: 'sans-serif', fontSize: '15px', color: '#e8e0d0', align: 'center', lineSpacing: 8 }).setOrigin(0.5));
+      // 特性：本局战斗统计——伤害来源 TOP5
+      const sources = Object.entries(this.world.damageBy).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      if (sources.length) {
+        const total = sources.reduce((sum, [, v]) => sum + v, 0) || 1;
+        layer.add(this.add.text(cx, cy + 52,
+          '伤害统计\n' + sources.map(([k, v]) => `${k}  ${Math.round((v / total) * 100)}%`).join('\n'),
+          { fontFamily: 'sans-serif', fontSize: '13px', color: '#b3a88d', align: 'center', lineSpacing: 5 }).setOrigin(0.5));
+      }
       const resume = this.add.container(cx - 110, cy + 120);
       resume.add(this.add.rectangle(0, 0, 180, 48, 0x7a4a1e).setStrokeStyle(3, 0x3d2410));
       resume.add(this.add.text(0, 0, '继续战斗', { fontFamily: 'sans-serif', fontSize: '16px', color: '#ffe9c4', fontStyle: 'bold' }).setOrigin(0.5));
@@ -343,7 +351,8 @@ export class BattleScene extends Phaser.Scene {
     this.applyTheme(w);
     startWave(this.run, this.world, w);
     this.saveProgress();
-    this.bannerText.setText(`第 ${w} / 12 波${w === 12 ? ' · 最终决战' : ''}`);
+    const eventName = this.run.event ? `\n${WAVE_EVENTS[this.run.event as keyof typeof WAVE_EVENTS]}` : '';
+    this.bannerText.setText(`第 ${w} / 12 波${w === 12 ? ' · 最终决战' : ''}${eventName}`);
     this.bannerText.setAlpha(1);
     this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1800, delay: 700 });
   }

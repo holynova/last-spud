@@ -101,7 +101,7 @@ export function tryFire(world: World, p: PlayerEntity, w: { key: string; tier: n
       const e = near[i];
       if (e.dead) continue;
       if (dist2(p.x, p.y, e.x, e.y) < reach2 + e.r * e.r) {
-        dealDamage(world, e, rollDamage(p, s.dmg * syn), s.kb ?? 60, p.x, p.y);
+        dealDamage(world, e, rollDamage(p, s.dmg * syn), s.kb ?? 60, p.x, p.y, false, Math.random, '武器·' + s.name);
       }
     }
     world.emit('fx:ring', { x: p.x, y: p.y, r: range, color: s.color });
@@ -127,6 +127,7 @@ export function tryFire(world: World, p: PlayerEntity, w: { key: string; tier: n
         const crit = Math.random() < p.stats.crit;
         const rolled = rollDamage(p, s.dmg * syn, crit);
         world.bullets.push(createBullet({
+          srcKey: s.key,
           x: p.x + Math.cos(ang) * 18, y: p.y + Math.sin(ang) * 18,
           vx: Math.cos(ang) * (s.pspd ?? 500), vy: Math.sin(ang) * (s.pspd ?? 500),
           dmg: rolled.val, crit,
@@ -164,7 +165,7 @@ export function tryFire(world: World, p: PlayerEntity, w: { key: string; tier: n
         while (da > Math.PI) da -= TAU;
         while (da < -Math.PI) da += TAU;
         if (Math.abs(da) <= arc / 2) {
-          dealDamage(world, e, rollDamage(p, s.dmg * syn), s.kb ?? 100, p.x, p.y);
+          dealDamage(world, e, rollDamage(p, s.dmg * syn), s.kb ?? 100, p.x, p.y, false, Math.random, '武器·' + s.name);
         }
       }
       world.emit('fx:arc', { x: p.x, y: p.y, ang: baseAng, arc, r: range, color: s.color });
@@ -178,7 +179,7 @@ export function tryFire(world: World, p: PlayerEntity, w: { key: string; tier: n
         const e = near[i];
         if (e.dead) continue;
         if (pointSegDist2(e.x, e.y, p.x, p.y, x2, y2) < (e.r + 4) * (e.r + 4)) {
-          dealDamage(world, e, rollDamage(p, s.dmg * syn), 40, p.x, p.y);
+          dealDamage(world, e, rollDamage(p, s.dmg * syn), 40, p.x, p.y, false, Math.random, '武器·' + s.name);
         }
       }
       world.emit('fx:bolt', { x1: p.x, y1: p.y, x2, y2, color: s.color });
@@ -227,7 +228,7 @@ export function updateBullet(world: World, b: BulletEntity, dt: number): void {
       } else {
         (b.hitSet ??= new Set()).add(e);
       }
-      dealDamage(world, e, { val: b.dmg, crit: b.crit }, b.kb, b.x - b.vx, b.y - b.vy);
+      dealDamage(world, e, { val: b.dmg, crit: b.crit }, b.kb, b.x - b.vx, b.y - b.vy, false, Math.random, b.srcKey);
       if (!b.boom) {
         b.pierce--;
         if (b.pierce < 0) { b.life = 0; break; }

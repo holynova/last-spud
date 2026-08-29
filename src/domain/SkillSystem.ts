@@ -18,8 +18,8 @@ export function updateSkills(world: World, dt: number): void {
     s.castAnim = Math.max(0, s.castAnim - dt);
     if (s.key === 'thorns') { castThorns(world, s, dt); continue; }
     if (s.timer <= 0) {
-      const st = skillStats(s.key as never, s.level);
-      if (castSkill(world, p, s.key as never, st)) {
+      const st = skillStats(s.key, s.level);
+      if (castSkill(world, p, s.key, st)) {
         s.timer = st.cd;
         s.castAnim = 0.3;
       } else {
@@ -29,7 +29,7 @@ export function updateSkills(world: World, dt: number): void {
   }
 }
 
-function castSkill(world: World, p: World['player'], key: string, st: ReturnType<typeof skillStats>): boolean {
+function castSkill(world: World, p: World['player'], key: import('../data/skills').SkillKey, st: ReturnType<typeof skillStats>): boolean {
   switch (key) {
     case 'shockwave': return castShockwave(world, p, st);
     case 'chain': return castChain(world, p, st);
@@ -45,6 +45,10 @@ function castShockwave(world: World, p: World['player'], st: ReturnType<typeof s
   world.emit('fx:ring', { x: p.x, y: p.y, r: st.range, color: '#ffd257', width: 6 });
   world.emit('fx:ring', { x: p.x, y: p.y, r: st.range * 0.6, color: '#fff2c9', width: 3 });
   world.emit('shake', { force: 5 });
+  // 觉醒：满级震荡波在原地留下燃烧地带
+  if (p.skills.find(s => s.key === 'shockwave')?.level === 5) {
+    world.hazards.push({ x: p.x, y: p.y, r: st.range * 0.5, dps: st.dmg * 0.5, ttl: 2, maxTtl: 2, tick: 0 });
+  }
   const near = world.grid.query(p.x, p.y, st.range + 54, _sq);
   let hit = false;
   for (let i = 0; i < near.length; i++) {
@@ -67,7 +71,9 @@ function castChain(world: World, p: World['player'], st: ReturnType<typeof skill
   for (let i = 0; i < st.jumps && cur; i++) {
     struck.add(cur);
     world.emit('fx:bolt', { x1: fromX, y1: fromY, x2: cur.x, y2: cur.y, color: '#7ee8ff' });
-    dealDamage(world, cur, rollDamage(p, st.dmg * (i === 0 ? 1 : 0.8), false), 40, fromX, fromY);
+    dealDamage(world, cur, rollDamage(p, st.dmg * (i === 0 ? 1 : 0.8), false), 40, fromX, fromY, false, Math.random, '技能·闪电链');
+    // 觉醒：满级闪电链眩晕（深度减速）命中的敌人
+    if (p.skills.find(s => s.key === 'chain')?.level === 5) cur.slowT = 1;
     fromX = cur.x; fromY = cur.y;
     let next: import('./types').EnemyEntity | null = null, nd = 220 * 220;
     const near = world.grid.query(fromX, fromY, 220 + 54, _sq);
@@ -88,6 +94,8 @@ function castFirefield(world: World, p: World['player'], st: ReturnType<typeof s
     x: p.x, y: p.y, r: st.range,
     dps: st.dmg * p.stats.dmg,
     ttl: st.duration, maxTtl: st.duration, tick: 0,
+    // 觉醒：满级火圈跟随玩家移动
+    follow: p.skills.find(s => s.key === 'firefield')?.level === 5,
   });
   return true;
 }
@@ -120,7 +128,7 @@ function castThorns(world: World, s: import('./types').SkillInstance, dt: number
     const e = near[i];
     if (e.dead) continue;
     if (dist2(world.player.x, world.player.y, e.x, e.y) < (r + e.r) * (r + e.r)) {
-      dealDamage(world, e, rollDamage(world.player, st.dmg * 0.4, false), 0, world.player.x, world.player.y, true);
+      dealDamage(world, e, rollDamage(world.player, st.dmg * 0.4, false), 0, world.player.x, world.player.y, true, Math.random, '技能·荆棘领域');
       e.slowT = 0.6;
     }
   }
@@ -133,12 +141,13 @@ export function updateHazards(world: World, dt: number): void {
     h.tick += dt;
     if (h.tick >= 0.4) {
       h.tick = 0;
+      if (h.follow) { h.x = world.player.x; h.y = world.player.y; }
       const near = world.grid.query(h.x, h.y, h.r + 54, _sq);
       for (let i = 0; i < near.length; i++) {
         const e = near[i];
         if (e.dead) continue;
         if (dist2(h.x, h.y, e.x, e.y) < (h.r + e.r) * (h.r + e.r)) {
-          dealDamage(world, e, { val: h.dps * 0.4, crit: false }, 0, h.x, h.y, true);
+          dealDamage(world, e, { val: h.dps * 0.4, crit: false }, 0, h.x, h.y, true, Math.random, '技能·烈火结界');
         }
       }
     }

@@ -11,7 +11,7 @@ export function updateEnemy(world: World, e: EnemyEntity, dt: number): void {
   e.flash = Math.max(0, e.flash - dt);
   e.touchCd = Math.max(0, e.touchCd - dt);
   e.slowT = Math.max(0, e.slowT - dt);
-  const slowMul = e.slowT > 0 ? 0.65 : 1;
+  const slowMul = (e.slowT > 0 ? 0.65 : 1) * (world.mud ? 0.7 : 1);
 
   const dx = p.x - e.x, dy = p.y - e.y;
   const d = Math.hypot(dx, dy) || 1;

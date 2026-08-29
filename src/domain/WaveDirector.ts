@@ -8,6 +8,13 @@ import type { World } from './types';
 
 // ============ 波次导演：刷怪节奏 / 精英 / 最终波 / 收波清场 ============
 
+export const WAVE_EVENTS = {
+  chest: '事件：宝箱怪！',
+  bloodmoon: '事件：血月！敌人翻倍，掉落翻倍',
+  mud: '事件：泥沼！所有人减速',
+} as const;
+export type WaveEventKey = keyof typeof WAVE_EVENTS;
+
 export function startWave(run: RunState, world: World, wave: number): void {
   run.wave = wave;
   run.timeLeft = waveDuration(wave);
@@ -16,12 +23,33 @@ export function startWave(run: RunState, world: World, wave: number): void {
   world.enemies = [];
   world.bullets = [];
   world.wave = wave;
+
+  // 特性：事件波次（每 4 波随机事件，最终波除外）
+  run.event = null;
+  world.dropMul = 1;
+  world.mud = false;
+  if (wave % 4 === 0 && wave < TOTAL_WAVES) {
+    const keys = Object.keys(WAVE_EVENTS) as WaveEventKey[];
+    const event = keys[Math.floor(Math.random() * keys.length)];
+    run.event = event;
+    if (event === 'bloodmoon') world.dropMul = 2;
+    if (event === 'mud') world.mud = true;
+  }
+
   // 最终波：只放 Boss
   if (wave >= TOTAL_WAVES) {
     const p = world.player;
     world.enemies.push(createEnemy('boss',
       Math.min(ARENA_W - WALL - 80, p.x + 420),
       Math.max(WALL + 80, Math.min(ARENA_H - WALL - 80, p.y)), wave));
+    return;
+  }
+  // 事件波：宝箱怪（精英 + 5 倍掉落）
+  if (run.event === 'chest') {
+    const chest = createEnemy('elite', ARENA_W / 2, ARENA_H / 2, wave);
+    chest.bonusDrops = 5;
+    world.enemies.push(chest);
+    world.grid.insert(chest);
   }
 }
 
@@ -55,7 +83,8 @@ export function updateWave(run: RunState, world: World, dt: number): boolean {
   if (run.spawnT > 0) return false;
   run.spawnT = spawnInterval(run.wave);
   let spawned = false;
-  for (let i = 0; i < spawnPerTick(run.wave) && world.enemies.length < 230; i++) {
+  const per = spawnPerTick(run.wave) * (world.dropMul > 1 ? 2 : 1); // 血月：刷怪翻倍
+  for (let i = 0; i < per && world.enemies.length < 230; i++) {
     spawnAtEdge(world, weightedPick(spawnTable(run.wave)).k, run.wave);
     spawned = true;
   }
