@@ -620,6 +620,30 @@ export class BattleScene extends Phaser.Scene {
     this.drawHud();
     this.refreshSkillHud();
     this.drawJoystick();
+    this.drawBossBar();
+  }
+
+  /** 特性：Boss 顶部血条（Boss 在场时显示于屏幕上方） */
+  private bossBarGfx!: Phaser.GameObjects.Graphics;
+  private bossBarText!: Phaser.GameObjects.Text;
+  private drawBossBar(): void {
+    const boss = this.world.enemies.find(e => e.def.boss && !e.dead);
+    if (!this.bossBarGfx) {
+      this.bossBarGfx = this.add.graphics().setScrollFactor(0).setDepth(155);
+      this.bossBarText = this.add.text(0, 0, '', {
+        fontFamily: 'sans-serif', fontSize: '14px', color: '#ffd257', fontStyle: 'bold',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(156);
+    }
+    this.bossBarGfx.clear();
+    if (!boss) {
+      this.bossBarText.setText('');
+      return;
+    }
+    const cx = this.scale.width / 2, w = 420;
+    this.bossBarGfx.fillStyle(0x000000, 0.6).fillRect(cx - w / 2 - 2, 44, w + 4, 16);
+    this.bossBarGfx.fillStyle(0xff4d4d, 1).fillRect(cx - w / 2, 46, w * Phaser.Math.Clamp(boss.hp / boss.maxHp, 0, 1), 12);
+    this.bossBarText.setText(boss.def.name);
+    this.bossBarText.setPosition(cx, 36);
   }
 
   private joyGfx!: Phaser.GameObjects.Graphics;
