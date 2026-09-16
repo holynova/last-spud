@@ -2,6 +2,11 @@
 
 一个类《土豆兄弟》(Brotato) 的幸存者游戏，网页版。纯原生 JavaScript + Canvas，零依赖，无需构建。
 
+<p align="center">
+  <img src="assets/readme/hero.svg" width="100%" alt="地牢幸存者 · Dungeon Survivors 🗡️: 一个类《土豆兄弟》(Brotato) 的幸存者游戏，网页版。纯原生 JavaScript + Canvas，零依赖，无需构建。">
+</p>
+
+
 [玩法](#玩法) · [技能](#技能一览) · [开发结构](#结构)
 
 美术素材来自 [Kenney](https://kenney.nl)（CC0 协议）：tiny-dungeon / micro-roguelike / ui-pack-rpg-expansion，
