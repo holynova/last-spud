@@ -2,6 +2,8 @@
 
 一个类《土豆兄弟》(Brotato) 的幸存者游戏，网页版。纯原生 JavaScript + Canvas，零依赖，无需构建。
 
+[玩法](#玩法) · [技能](#技能一览) · [开发结构](#结构)
+
 美术素材来自 [Kenney](https://kenney.nl)（CC0 协议）：tiny-dungeon / micro-roguelike / ui-pack-rpg-expansion，
 由 `tools/build_assets.py` 挑选并组装进 `assets/`。
 
@@ -14,6 +16,8 @@ python3 -m http.server 8377
 ```
 
 （直接双击 `index.html` 也可以玩。）
+
+首次游玩可先选择冒险家，用 WASD / 方向键移动，观察自动攻击；波间在商店购买武器或恢复生命，再进入下一波。
 
 ## 玩法
 
@@ -82,3 +86,14 @@ test/smoke.js         无头冒烟测试（node test/smoke.js）
 
 优化项与功能扩展清单见 [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md)；
 架构分析、重构路线与引擎选型建议见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
+## 开发检查
+
+测试需要 Node.js 18 或更高版本：
+
+```bash
+npm run test:smoke
+npm run test:stress
+```
+
+常规游玩无需重新生成素材；只有重建 `assets/` 时才需要素材脚本和 Pillow。
