@@ -9,7 +9,11 @@ const UI = {
     CHARACTERS.forEach((c, i) => {
       const card = document.createElement('div');
       card.className = 'char-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `选择英雄：${c.name}`);
       card.innerHTML = `<div class="face"><img class="char-img" src="assets/${c.sprite}.png" alt="${c.name}"></div><h3>${c.name}</h3><p>${c.desc}</p>`;
+      card.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); card.click(); } };
       card.onclick = () => {
         list.querySelectorAll('.char-card').forEach(x => x.classList.remove('selected'));
         card.classList.add('selected');
@@ -33,6 +37,17 @@ const UI = {
     this.el('btn-nextwave').onclick = () => { Game.nextWave(); };
     this.el('btn-resume').onclick = () => Game.togglePause();
     this.el('btn-quit').onclick = () => {
+      const btn = this.el('btn-quit');
+      if (!this._quitArmed) {
+        // 不可逆操作：先武装确认，点第二次才真正放弃
+        this._quitArmed = true;
+        btn.textContent = '确认放弃？进度将清除';
+        btn.classList.add('danger-arm');
+        return;
+      }
+      this._quitArmed = false;
+      btn.textContent = '放弃本局';
+      btn.classList.remove('danger-arm');
       Game.state = 'over';
       Game.clearProgress();
       Game.saveBest(false);
@@ -46,7 +61,7 @@ const UI = {
     try {
       const rec = JSON.parse(localStorage.getItem('lastspud_best') || 'null');
       this.el('best-record').textContent = rec
-        ? `最佳纪录：${rec.win ? '通关' : '第 ' + rec.wave + ' 波'} · 击杀 ${rec.kills}`
+        ? `最佳纪录：${rec.win ? '通关' : '第 ' + rec.wave + ' 波'}，击杀 ${rec.kills}`
         : '尚无纪录，从第 1 波开始';
     } catch (e) {}
   },
@@ -62,7 +77,7 @@ const UI = {
       const save = Game.loadProgress();
       const btn = this.el('btn-continue');
       if (save && save.wave > 1) {
-        btn.textContent = `继续上局 · 第 ${save.wave} 波 · ${save.kills || 0} 击杀`;
+        btn.textContent = `继续上局，第 ${save.wave} 波，${save.kills || 0} 击杀`;
         btn.classList.remove('hidden');
       } else {
         btn.classList.add('hidden');
@@ -205,6 +220,9 @@ const UI = {
     picks.forEach(u => {
       const card = document.createElement('div');
       card.className = 'pick-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); card.click(); } };
       let rc = '#4aa3ff', tag = '属性强化';
       if (u.kind === 'skill-new') { rc = u.color || '#c86bff'; tag = '新技能'; }
       else if (u.kind === 'skill-up') { rc = u.color || '#ffd257'; tag = '技能升级'; }
@@ -238,6 +256,9 @@ const UI = {
     Game.shopOffers.forEach((o, idx) => {
       const card = document.createElement('div');
       card.className = 'pick-card' + (o.locked ? ' locked' : '');
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); card.click(); } };
       if (o.kind === 'weapon') {
         const d = WEAPONS[o.key];
         const s = weaponStats(o.key, o.tier);
@@ -245,10 +266,10 @@ const UI = {
         const merge = p.weapons.some(w => w.key === o.key && w.tier === o.tier);
         const full = !merge && p.weapons.length >= MAX_WEAPONS;
         card.innerHTML = `
-          <div class="ctag">武器 · ${TIER_NAMES[o.tier - 1]}${merge ? ' · 可合成↑' : ''}</div>
+          <div class="ctag">武器：${TIER_NAMES[o.tier - 1]}${merge ? '，可合成↑' : ''}</div>
           ${this.iconImg(d.icon)}
           <h3>${d.name}</h3>
-          <div class="cdesc">伤害 ${Math.round(s.dmg)} · 冷却 ${s.cd.toFixed(2)}s<br>${d.desc}</div>
+          <div class="cdesc">伤害 ${Math.round(s.dmg)}，冷却 ${s.cd.toFixed(2)} 秒<br>${d.desc}</div>
           <div class="cprice"><img class="coin" src="assets/pickup/material.png" alt=""> ${o.price}</div>`;
         if (o.sold) card.classList.add('sold');
         if (full) { card.classList.add('disabled'); card.onclick = () => { Sfx.error(); this.toastMoney('武器栏已满'); }; }
@@ -280,6 +301,9 @@ const UI = {
     const healCost = Game.healCost();
     const bread = document.createElement('div');
     bread.className = 'pick-card';
+    bread.tabIndex = 0;
+    bread.setAttribute('role', 'button');
+    bread.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); bread.click(); } };
     bread.style.setProperty('--rc', '#ff6b5e');
     if (Game.healUsed || p.hp >= p.stats.maxHp) bread.classList.add('disabled');
     bread.innerHTML = `
@@ -294,6 +318,10 @@ const UI = {
 
   // ---------- 暂停 ----------
   showPause() {
+    this._quitArmed = false;
+    const quitBtn = this.el('btn-quit');
+    quitBtn.textContent = '放弃本局';
+    quitBtn.classList.remove('danger-arm');
     const p = Game.player;
     const grid = this.el('pause-stats');
     const skillRows = p.skills.length
@@ -314,7 +342,7 @@ const UI = {
     const p = Game.player;
     this.el('over-title').textContent = win ? '通关！地牢之王' : '你倒在了地牢深处';
     this.el('over-stats').innerHTML = `
-      <div class="row"><span>到达波次</span><b>第 ${Game.wave} / ${TOTAL_WAVES} 波${win ? ' · 通关！' : ''}</b></div>
+      <div class="row"><span>到达波次</span><b>第 ${Game.wave} / ${TOTAL_WAVES} 波${win ? '，通关！' : ''}</b></div>
       <div class="row"><span>等级</span><b>Lv.${p.level}</b></div>
       <div class="row"><span>击杀数</span><b>${Game.kills}</b></div>
       <div class="row"><span>存活时间</span><b>${Math.floor(Game.elapsed / 60)}分${Math.floor(Game.elapsed % 60)}秒</b></div>
@@ -365,7 +393,7 @@ function statRows(p) {
     `<div class="row"><span>${UI.iconImg(icon, 'row-img')}${label}</span><b>${val}</b></div>`;
   return [
     row('up/vit', '生命', `${Math.ceil(p.hp)}/${Math.round(s.maxHp)}`),
-    row('up/regen', '再生', `${s.regen.toFixed(1)}/5s`),
+    row('up/regen', '再生', `每 5 秒 +${s.regen.toFixed(1)}`),
     row('up/wind', '移速', `${Math.round(s.speed * 100)}%`),
     row('up/blade', '伤害', `${Math.round(s.dmg * 100)}%`),
     row('up/swift', '攻速', `${Math.round(s.aspd * 100)}%`),
@@ -374,7 +402,7 @@ function statRows(p) {
     row('up/cruel', '暴伤', `${Math.round(s.critMult * 100)}%`),
     row('item/shield_item', '减伤', `${reduction.toFixed(0)}%`),
     row('up/instinct', '闪避', `${Math.round(Math.min(0.6, s.dodge) * 100)}%`),
-    row('up/magnet', '拾取', `${Math.round(s.pickup)}`),
+    row('up/magnet', '拾取范围', `${Math.round(s.pickup)}`),
     row('up/lucky', '幸运', `${s.luck}`),
   ].join('');
 }

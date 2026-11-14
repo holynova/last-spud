@@ -87,7 +87,7 @@ const Game = {
     }
     UI.hideAll();
     UI.showHud(true);
-    UI.banner('第 ' + w + ' 波' + (w === TOTAL_WAVES ? ' · 最终决战！' : ''));
+    UI.banner('第 ' + w + ' 波' + (w === TOTAL_WAVES ? '：最终决战！' : ''));
     Sfx.waveStart();
     this.saveProgress();
   },
