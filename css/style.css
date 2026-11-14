@@ -29,10 +29,21 @@ img { image-rendering: pixelated; }
   .wslot, .sslot { width: 32px; height: 32px; }
   .wslot-img { width: 20px; height: 20px; }
   #hud-left { max-width: 200px; }
+  #hud-bottom { flex-wrap: wrap; }
+  #hud-bars { flex-wrap: wrap; justify-content: flex-end; }
   #hud-level { font-size: 15px; }
   .btn { padding: 8px 14px; font-size: 14px; }
   .btn.big { font-size: 16px; padding: 10px 20px; }
   #banner { font-size: 26px; letter-spacing: 5px; }
+}
+
+/* ---------- 超小屏（390px 档）：满配 6 武器 + 3 技能不溢出 ---------- */
+@media (max-width: 430px) {
+  .wslot, .sslot { width: 28px; height: 28px; }
+  .wslot-img { width: 18px; height: 18px; }
+  #hud-left { max-width: 140px; }
+  #hud-bars { gap: 8px; }
+  #hud-top { gap: 10px; }
 }
 
 .hidden { display: none !important; }
@@ -49,6 +60,8 @@ img { image-rendering: pixelated; }
 .btn:hover:not(:disabled) { filter: brightness(1.15); }
 .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #3d2410; }
 .btn:disabled { filter: grayscale(.7) brightness(.6); cursor: not-allowed; }
+.btn.danger-arm { background: #8e2f26; border-color: #5c1a14; box-shadow: 0 4px 0 #5c1a14; }
+.char-card:focus-visible, .pick-card:focus-visible { outline: 2px solid #ffd257; outline-offset: 2px; }
 .btn.big { font-size: 20px; padding: 14px 34px; }
 .btn.ghost {
   background: #2a251d; color: #e8e0d0; border-color: #55503f; box-shadow: 0 4px 0 #55503f;
